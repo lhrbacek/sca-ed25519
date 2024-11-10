@@ -79,6 +79,7 @@ inline void curve25519_ladderstep(ST_curve25519ladderstepWorkingState *pState) {
 
   fe25519_add(b5, b1, b2);           // A = X2+Z2
   fe25519_sub(b6, b1, b2);           // B = X2-Z2
+  fe25519_reduceCompletely(b6);      // LH: this reduction is needed because BB=B^2 affects X4=AA*BB
   fe25519_add(b1, b3, b4);           // C = X3+Z3
   fe25519_sub(b2, b3, b4);           // D = X3-Z3
   fe25519_mul(b3, b2, b5);           // DA= D*A
@@ -91,6 +92,7 @@ inline void curve25519_ladderstep(ST_curve25519ladderstepWorkingState *pState) {
   fe25519_square(b1, b5);            // AA=A^2
   fe25519_square(b5, b6);            // BB=B^2
   fe25519_sub(b2, b1, b5);           // E=AA-BB
+  fe25519_reduceCompletely(b2);      // LH: this reduction is needed because Z4=E*t5, reduction at B=X2-Z2 is not enough, some results are still different.
   fe25519_mul(b1, b5, b1);           // X4= AA*BB
 #ifdef CRYPTO_HAS_ASM_COMBINED_MPY121666ADD_FE25519
   fe25519_mpy121666add(b6, b5, b2);
