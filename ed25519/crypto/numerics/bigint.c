@@ -998,7 +998,7 @@ uint32_t isEqual_256bitvalue(const UN_256bitValue* x, const UN_256bitValue* y) {
 
 void to_string_256bitvalue(char* out, const UN_256bitValue* in)
 {
-  for (int i = 0; i < 32; i = i) {
-    sprintf(out + i*2, "%.2x", in->as_uint8_t[i]);
+  for (int i = 0; i < 32; i++) {
+    sprintf(&out[i*2], "%02x", in->as_uint8_t[i]);
   }
 }
