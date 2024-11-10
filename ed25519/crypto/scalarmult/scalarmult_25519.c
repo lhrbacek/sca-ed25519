@@ -2,6 +2,8 @@
 #include "../include/fe25519.h"
 #include "../include/randombytes.h"
 #include "../include/sc25519.h"
+#include "../include/bigint.h"
+#include "../../stm32wrapper.h"
 
 // Compile switch for configuring
 // Use with care: Swapping pointers results in variable time execution if stack
@@ -34,6 +36,10 @@ typedef struct _ST_curve25519ladderstepWorkingState {
 #endif
 
 } ST_curve25519ladderstepWorkingState;
+
+void print_state(char* str, ST_curve25519ladderstepWorkingState* state);
+void print_state_if_less(char* str, ST_curve25519ladderstepWorkingState* state, int iter, int i, uint8_t bit);
+void num_to_binary(int nextScalarBitToProcess, UN_256bitValue* s_to_print);
 
 // Original static_key
 /*const UN_256bitValue static_key = {{0x80, 0x65, 0x74, 0xba, 0x61, 0x62, 0xcd,
@@ -78,27 +84,45 @@ inline void curve25519_ladderstep(ST_curve25519ladderstepWorkingState *pState) {
   fe25519 *b6 = &t2;
 
   fe25519_add(b5, b1, b2);           // A = X2+Z2
+  //fe25519_reduceCompletely(b5);
   fe25519_sub(b6, b1, b2);           // B = X2-Z2
+  fe25519_reduceCompletely(b6); // this reduction is needed because BB=B^2 affects X4=AA*BB
   fe25519_add(b1, b3, b4);           // C = X3+Z3
+  //fe25519_reduceCompletely(b1);
   fe25519_sub(b2, b3, b4);           // D = X3-Z3
+  //fe25519_reduceCompletely(b2);
   fe25519_mul(b3, b2, b5);           // DA= D*A
+  //fe25519_reduceCompletely(b3);
   fe25519_mul(b2, b1, b6);           // CB= C*B
+  //fe25519_reduceCompletely(b2);
   fe25519_add(b1, b2, b3);           // T0= DA+CB
+  //fe25519_reduceCompletely(b1);
   fe25519_sub(b4, b3, b2);           // T2= DA-CB
+  //fe25519_reduceCompletely(b4);
   fe25519_square(b3, b1);            // X5==T1= T0^2
+  //fe25519_reduceCompletely(b3);
   fe25519_square(b1, b4);            // T3= t2^2
+  //fe25519_reduceCompletely(b1);
   fe25519_mul(b4, b1, &pState->x0);  // Z5=X1*t3
+  //fe25519_reduceCompletely(b4);
   fe25519_square(b1, b5);            // AA=A^2
+  //fe25519_reduceCompletely(b1);
   fe25519_square(b5, b6);            // BB=B^2
+  //fe25519_reduceCompletely(b5);
   fe25519_sub(b2, b1, b5);           // E=AA-BB
+  fe25519_reduceCompletely(b2); // this reduction is needed because Z4=E*t5, reduction at B=X2-Z2 is not enough, some results are still different.
   fe25519_mul(b1, b5, b1);           // X4= AA*BB
+  //fe25519_reduceCompletely(b1);
 #ifdef CRYPTO_HAS_ASM_COMBINED_MPY121666ADD_FE25519
   fe25519_mpy121666add(b6, b5, b2);
 #else
   fe25519_mpyWith121666(b6, b2);  // T4 = a24*E
+  //fe25519_reduceCompletely(b6);
   fe25519_add(b6, b6, b5);        // T5 = BB + t4
+  //fe25519_reduceCompletely(b6);
 #endif
   fe25519_mul(b2, b6, b2);  // Z4 = E*t5
+  //fe25519_reduceCompletely(b2);
 }
 
 static void curve25519_cswap(ST_curve25519ladderstepWorkingState *state,
@@ -112,8 +136,66 @@ static void curve25519_cswap(ST_curve25519ladderstepWorkingState *state,
 #endif
 }
 
+// LH
+static const fe25519 CON486662 = {
+    {0x06, 0x6d, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
+
+
+// LH
+static int computeY_curve25519_affine(fe25519* y, const fe25519* x) {
+  // y^2 = x^3 + 486662x^2 + x
+  fe25519 tmp, x2;
+
+  // x^3
+  fe25519_square(&x2, x);
+  fe25519_mul(&tmp, &x2, x);
+  // 486662x^2
+  fe25519_mul(&x2, &x2, &CON486662);
+
+  fe25519_add(&tmp, &tmp, &x2);
+  fe25519_add(&tmp, &tmp, x);
+
+  return fe25519_squareroot(y, &tmp);
+}
+
+// LH
+// Montgomery y-recovery Algorithm 5 in Montgomery Curves and their arithmetic
+static void computeY_curve25519_projective(
+    fe25519* y1, fe25519* x1, fe25519* z1,  // (x1,z1) = k*P
+    const fe25519* x2, const fe25519* z2,   // (x2,z2)= (k+1)*P
+    const fe25519* x, const fe25519* y      // (x,y) = P, z=1
+) {
+  fe25519 v1, v2, v3, v4;
+
+  fe25519_mul(&v1, x, z1);
+  fe25519_add(&v2, x1, &v1);
+  fe25519_sub(&v3, x1, &v1);
+  fe25519_square(&v3, &v3);
+  fe25519_mul(&v3, &v3, x2);
+
+  fe25519_add(&v1, &CON486662, &CON486662);
+  fe25519_mul(&v1, &v1, z1);
+  fe25519_add(&v2, &v2, &v1);
+  fe25519_mul(&v4, x, x1);
+  fe25519_add(&v4, &v4, z1);
+  fe25519_mul(&v2, &v2, &v4);
+
+  fe25519_mul(&v1, &v1, z1);
+  fe25519_sub(&v2, &v2, &v1);
+  fe25519_mul(&v2, &v2, z2);
+  fe25519_sub(y1, &v2, &v3);
+  fe25519_add(&v1, y, y);
+
+  fe25519_mul(&v1, &v1, z1);
+  fe25519_mul(&v1, &v1, z2);
+  fe25519_mul(x1, &v1, x1);
+  fe25519_mul(z1, &v1, z1);
+}
+
 int crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
-                                 const uint8_t *p) {
+                                 const uint8_t *p, uint8_t starting_bit) {
   ST_curve25519ladderstepWorkingState state;
   uint8_t i;
 
@@ -121,10 +203,20 @@ int crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
   for (i = 0; i < 32; i++) {
     state.s.as_uint8_t[i] = s[i];
   }
+  
+  // LH
+  char str[100];
+  send_USART_str((unsigned char *)"==================================================");
+  to_string_256bitvalue(str, &state.s);
+  send_USART_str((unsigned char *)"r:");
+  send_USART_str((unsigned char *)str);
+  UN_256bitValue* s_to_print = &state.s;
+  num_to_binary(starting_bit, s_to_print);
 
-  state.s.as_uint8_t[0] &= 248;
-  state.s.as_uint8_t[31] &= 127;
-  state.s.as_uint8_t[31] |= 64;
+  // LH: commented because it is for DH
+  // state.s.as_uint8_t[0] &= 248;
+  // state.s.as_uint8_t[31] &= 127;
+  // state.s.as_uint8_t[31] |= 64;
 
   // Copy the affine x-axis of the base point to the state.
   fe25519_unpack(&state.x0, p);
@@ -136,7 +228,12 @@ int crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
   fe25519_setone(&state.xp);
   fe25519_setzero(&state.zp);
 
-  state.nextScalarBitToProcess = 254;
+  fe25519 yp, y0;
+  if (computeY_curve25519_affine(&yp, &state.x0) != 0) {
+    return 1;
+  } // ### alg. step 3 ###
+
+  state.nextScalarBitToProcess = starting_bit; // LH original 254, then 255
 
 #ifdef DH_SWAP_BY_POINTERS
   // we need to initially assign the pointers correctly.
@@ -161,18 +258,48 @@ int crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
     state.previousProcessedBit = bit;
     curve25519_cswap(&state, swap);
     curve25519_ladderstep(&state);
+
+    // print_state_if_less(str, &state, state.nextScalarBitToProcess, 2, bit);
+
     state.nextScalarBitToProcess--;
   }
 
   curve25519_cswap(&state, state.previousProcessedBit);
 
+  // LH
+  // computeY_curve25519_projective(&y0, &state.xp, &state.zp, &state.xq,
+  //                                &state.zq, &state.x0, &yp);
+
+  // send_USART_str((unsigned char *)"---before buffers---");
+  // print_state(str, &state);
+
+  //fe25519_reduceCompletely(&state.xp);
+  // send_USART_str((unsigned char *)"---before buffers reduced---");
+  // print_state(str, &state);
+
   // Optimize for stack usage.
   fe25519_invert_useProvidedScratchBuffers(&state.zp, &state.zp, &state.xq,
                                            &state.zq, &state.x0);
+
+  // send_USART_str((unsigned char *)"---before mul and reduce---");
+  // print_state(str, &state);
+  
   fe25519_mul(&state.xp, &state.xp, &state.zp);
+  send_USART_str((unsigned char *)"----- scamult affine -----");
   fe25519_reduceCompletely(&state.xp);
+  to_string_256bitvalue(str, &state.xp);
+  send_USART_str((unsigned char *)str);
+  // print_state(str, &state);
+
+  fe25519_reduceCompletely(&state.xp);
+  // send_USART_str((unsigned char *)"---scamult affine reduced---");
+  // print_state(str, &state);
 
   fe25519_pack(r, &state.xp);
+
+  // LH // 2^255+305 ... 324
+  // send_USART_str((unsigned char *)"---after mul and reduce---");
+  // print_state(str, &state);
 
   return 0;
 }
@@ -181,6 +308,54 @@ const uint8_t g_basePointCurve25519[32] = {9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-int crypto_scalarmult_base_curve25519(uint8_t *q, const uint8_t *n) {
-  return crypto_scalarmult_curve25519(q, n, g_basePointCurve25519);
+int crypto_scalarmult_base_curve25519(uint8_t *q, const uint8_t *n, uint8_t starting_bit) {
+  return crypto_scalarmult_curve25519(q, n, g_basePointCurve25519, starting_bit);
+}
+
+void print_state(char* str, ST_curve25519ladderstepWorkingState* state) {
+  to_string_256bitvalue(str, &state->xp);
+  send_USART_str((unsigned char *)"x1:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, &state->zp);
+  send_USART_str((unsigned char *)"z1:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, &state->xq);
+  send_USART_str((unsigned char *)"x2:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, &state->zq);
+  send_USART_str((unsigned char *)"z2:");
+  send_USART_str((unsigned char *)str);
+  // to_string_256bitvalue(str, &state->x0);
+  // send_USART_str((unsigned char *)"x: ");
+  // send_USART_str((unsigned char *)str);
+}
+
+void print_state_if_less(char* str, ST_curve25519ladderstepWorkingState* state, int iter, int i, uint8_t bit) {
+  if (iter < i) {
+    sprintf(str, "----- after %d. bit (%u) -----", iter, bit);
+    send_USART_str((unsigned char *)str);
+    print_state(str, state);
+  }
+}
+
+void num_to_binary(int nextScalarBitToProcess, UN_256bitValue* s) {
+  char str[256] = { 0 };
+
+  while (nextScalarBitToProcess >= 0) {
+    uint8_t byteNo = (uint8_t)(nextScalarBitToProcess >> 3);
+    uint8_t bitNo = (uint8_t)(nextScalarBitToProcess & 7);
+    uint8_t bit;
+    bit = 1 & (s->as_uint8_t[byteNo] >> bitNo);
+
+    if (bit == 1) {
+      str[nextScalarBitToProcess] = '1';
+    } else {
+      str[nextScalarBitToProcess] = '0';
+    }
+
+    nextScalarBitToProcess--;
+  }
+
+  send_USART_str((unsigned char *)str);
+
 }

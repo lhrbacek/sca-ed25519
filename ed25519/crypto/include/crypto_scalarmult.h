@@ -38,11 +38,11 @@ int crypto_static_scalarmult_curve25519(
 
 // Protected static scalar multiplication
 int crypto_scalarmult_curve25519(uint8_t* r, const uint8_t* s,
-                                 const uint8_t* p);
+                                 const uint8_t* p, uint8_t starting_bit);
 
 void update_static_key_curve25519(void);
 
-int crypto_scalarmult_base_curve25519(uint8_t* q, const uint8_t* n);
+int crypto_scalarmult_base_curve25519(uint8_t* q, const uint8_t* n, uint8_t starting_bit);
 
 extern const uint8_t g_basePointCurve25519[32];
 
