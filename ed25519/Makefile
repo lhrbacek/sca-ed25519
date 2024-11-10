@@ -17,7 +17,7 @@ OBJS	   = stm32f4_wrapper.o \
 			 crypto/numerics/fe25519.o crypto/numerics/fe25519_invert.o crypto/numerics/bigint.o crypto/numerics/sc25519.o
 
 
-CFLAGS		+= -g -O2 \
+CFLAGS		+= -g \
 		   -Wall -Wextra -Wimplicit-function-declaration \
 		   -Wredundant-decls -Wmissing-prototypes -Wstrict-prototypes \
 		   -Wundef -Wshadow \
@@ -30,7 +30,7 @@ LDFLAGS		+= --static -Wl,--start-group -lc -lgcc -lnosys -Wl,--end-group \
 
 -include local.mk
 
-all: lib main.bin
+all: lib main.bin main.elf
 
 flash: lib main.bin
 	st-flash write main.bin 0x8000000
