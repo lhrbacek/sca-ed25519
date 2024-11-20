@@ -35,6 +35,63 @@ typedef struct _ST_curve25519ladderstepWorkingState {
 
 } ST_curve25519ladderstepWorkingState;
 
+// LH
+static const fe25519 CON486662 = {
+    {0x06, 0x6d, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
+
+// LH
+static int computeY_curve25519_affine(fe25519* y, const fe25519* x) {
+  // y^2 = x^3 + 486662x^2 + x
+  fe25519 tmp, x2;
+
+  // x^3
+  fe25519_square(&x2, x);
+  fe25519_mul(&tmp, &x2, x);
+  // 486662x^2
+  fe25519_mul(&x2, &x2, &CON486662);
+
+  fe25519_add(&tmp, &tmp, &x2);
+  fe25519_add(&tmp, &tmp, x);
+
+  return fe25519_squareroot(y, &tmp);
+}
+
+// LH
+// Montgomery y-recovery Algorithm 5 in Montgomery Curves and their arithmetic
+static void computeY_curve25519_projective(
+    fe25519* y1, fe25519* x1, fe25519* z1,  // (x1,z1) = k*P
+    const fe25519* x2, const fe25519* z2,   // (x2,z2)= (k+1)*P
+    const fe25519* x, const fe25519* y      // (x,y) = P, z=1
+) {
+  fe25519 v1, v2, v3, v4;
+
+  fe25519_mul(&v1, x, z1);
+  fe25519_add(&v2, x1, &v1);
+  fe25519_sub(&v3, x1, &v1);
+  fe25519_square(&v3, &v3);
+  fe25519_mul(&v3, &v3, x2);
+
+  fe25519_add(&v1, &CON486662, &CON486662);
+  fe25519_mul(&v1, &v1, z1);
+  fe25519_add(&v2, &v2, &v1);
+  fe25519_mul(&v4, x, x1);
+  fe25519_add(&v4, &v4, z1);
+  fe25519_mul(&v2, &v2, &v4);
+
+  fe25519_mul(&v1, &v1, z1);
+  fe25519_sub(&v2, &v2, &v1);
+  fe25519_mul(&v2, &v2, z2);
+  fe25519_sub(y1, &v2, &v3);
+  fe25519_add(&v1, y, y);
+
+  fe25519_mul(&v1, &v1, z1);
+  fe25519_mul(&v1, &v1, z2);
+  fe25519_mul(x1, &v1, x1);
+  fe25519_mul(z1, &v1, z1);
+}
+
 // Original static_key
 /*const UN_256bitValue static_key = {{0x80, 0x65, 0x74, 0xba, 0x61, 0x62, 0xcd,
    0x58, 0x49, 0x30, 0x59, 0x47, 0x36, 0x16, 0x35, 0xb6, 0xe7, 0x7d, 0x7c, 0x7a,
@@ -124,9 +181,10 @@ int crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
     state.s.as_uint8_t[i] = s[i];
   }
 
-  state.s.as_uint8_t[0] &= 248;
-  state.s.as_uint8_t[31] &= 127;
-  state.s.as_uint8_t[31] |= 64;
+  // LH: commented below because it is for ECDH
+  //state.s.as_uint8_t[0] &= 248;
+  //state.s.as_uint8_t[31] &= 127;
+  //state.s.as_uint8_t[31] |= 64;
 
   // Copy the affine x-axis of the base point to the state.
   fe25519_unpack(&state.x0, p);
@@ -138,6 +196,13 @@ int crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
   fe25519_setone(&state.xp);
   fe25519_setzero(&state.zp);
 
+  // LH add
+  fe25519 yp, y0;
+  if (computeY_curve25519_affine(&yp, &state.x0) != 0) {
+    return 1;
+  } // ### alg. step 3 ###
+
+  //state.nextScalarBitToProcess = 254; LH, 255 in ed25519
   state.nextScalarBitToProcess = 254;
 
 #ifdef DH_SWAP_BY_POINTERS
@@ -168,10 +233,18 @@ int crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
 
   curve25519_cswap(&state, state.previousProcessedBit);
 
+  // LH
+  computeY_curve25519_projective(&y0, &state.xp, &state.zp, &state.xq,
+                                 &state.zq, &state.x0, &yp);
+
+  // LH
+  fe25519 zp_inv;
+  fe25519_invert(&zp_inv, &state.zp);
+
   // Optimize for stack usage.
-  fe25519_invert_useProvidedScratchBuffers(&state.zp, &state.zp, &state.xq,
-                                           &state.zq, &state.x0);
-  fe25519_mul(&state.xp, &state.xp, &state.zp);
+  //fe25519_invert_useProvidedScratchBuffers(&state.zp, &state.zp, &state.xq,
+  //                                         &state.zq, &state.x0);
+  fe25519_mul(&state.xp, &state.xp, &zp_inv);
   fe25519_reduceCompletely(&state.xp);
 
   fe25519_pack(r, &state.xp);
