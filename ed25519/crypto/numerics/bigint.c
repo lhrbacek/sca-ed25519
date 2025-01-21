@@ -1002,3 +1002,10 @@ void to_string_256bitvalue(char* out, const UN_256bitValue* in)
     sprintf(&out[i*2], "%02x", in->as_uint8_t[i]);
   }
 }
+
+void to_string_512bitvalue(char* out, const UN_512bitValue* in)
+{
+  for (int i = 0; i < 64; i++) {
+    sprintf(&out[i*2], "%02x", in->as_uint8_t[i]);
+  }
+}

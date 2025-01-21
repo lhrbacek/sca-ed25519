@@ -272,5 +272,6 @@ uint32_t isEqual_256bitvalue(const UN_256bitValue* x, const UN_256bitValue* y);
 int greaterThan(const UN_256bitValue* x, const UN_256bitValue* y);
 
 void to_string_256bitvalue(char* out, const UN_256bitValue* in);
+void to_string_512bitvalue(char* out, const UN_512bitValue* in);
 
 #endif  // NUM_TYPES_HEADER_
