@@ -2,6 +2,7 @@
 #include "../include/fe25519.h"
 #include "../include/randombytes.h"
 #include "../include/sc25519.h"
+#include "../../stm32wrapper.h"
 
 // Compile switch for configuring
 // Use with care: Swapping pointers results in variable time execution if stack
@@ -334,12 +335,12 @@ int crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
   fe25519_reduceCompletely(&x_ea);
   fe25519_reduceCompletely(&y_ea);
 
-  to_string_256bitvalue(str, &x_ea);
-  send_USART_str((unsigned char *)"x_ea:");
-  send_USART_str((unsigned char *)str);
-  to_string_256bitvalue(str, &y_ea);
-  send_USART_str((unsigned char *)"y_ea:");
-  send_USART_str((unsigned char *)str);
+  // to_string_256bitvalue(str, &x_ea);
+  // send_USART_str((unsigned char *)"x_ea:");
+  // send_USART_str((unsigned char *)str);
+  // to_string_256bitvalue(str, &y_ea);
+  // send_USART_str((unsigned char *)"y_ea:");
+  // send_USART_str((unsigned char *)str);
 
   ed25519_encode(r, &x_ea, &y_ea);
 
