@@ -9,7 +9,18 @@
 #include "crypto/include/sc25519.h"
 #include "crypto/include/crypto_scalarmult.h"
 #include "crypto/include/sha512_supercop.h"
+#include "crypto/include/fips202-masked.h"
+#include "crypto/include/fips202.h"
 #include "crypto/include/ed25519.h"
+#include "crypto/include/randombytes.h"
+
+static void __attribute__ ((noinline)) memxor(void *dest, const void *src, size_t len)
+{
+  char *d = dest;
+  const char *s = src;
+  while(len--)
+    *d++ ^= *s++;
+}
 
 int main(void) {
   clock_setup();
@@ -93,24 +104,34 @@ int main(void) {
   unsigned char signed_msg[64] = { 0 };
   unsigned long long signed_msg_len;
   unsigned char msg[] = {
-    0xaa, 0x11, 0xcc, 0xdd  };
+    0xaa, 0x11, 0xcc, 0xdd, 0xee, 0xff, 0xee, 0xff, 0xee};
   unsigned long long msg_len = sizeof(msg);
-  unsigned char priv_pub_key[64] = {
+  /*unsigned char priv_pub_key[64] = { // pubkey created with SHA512
     0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 
     0x4a, 0xf4, 0x92, 0xec, 0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69, 
     0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x3, 0x1c, 0xae, 
     0x7f, 0x60, 0xd7, 0x5a, 0x98, 0x1, 0x82, 0xb1, 0xa, 0xb7, 
     0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x7, 0x3a, 0xe, 0xe1, 
     0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x2, 0x1a, 0x68, 
-    0xf7, 0x7, 0x51, 0x1a, };
+    0xf7, 0x7, 0x51, 0x1a, };*/
+
+  unsigned char priv_pub_key[64] = { // pubkey created with SHAKE256
+    0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84,
+    0x4a, 0xf4, 0x92, 0xec, 0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69,
+    0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x3, 0x1c, 0xae,
+    0x7f, 0x60, 0xc, 0xdb, 0x1e, 0xd8, 0x64, 0x17, 0x7, 0x7e,
+    0xae, 0xb7, 0x30, 0x37, 0x9c, 0xa3, 0x28, 0x6c, 0x57, 0x9,
+    0xaa, 0xfe, 0xc4, 0x6, 0x86, 0xc7, 0x31, 0xa1, 0x2d, 0x63,
+    0x49, 0x9e, 0xe0, 0xb5, };
   
   sign(signed_msg, &signed_msg_len, msg, msg_len, priv_pub_key);
 
-  to_string_512bitvalue(str, signed_msg);
+  to_string_512bitvalue(str, (UN_512bitValue*)signed_msg);
   send_USART_str((unsigned char *)"my ed25519:");
   send_USART_str((unsigned char *)str);
 
 
+  // HASH SHAKE DEBUG
   // unsigned char hash_out[64];
   // unsigned char hash_in[32] = {
   //      0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -128,9 +149,70 @@ int main(void) {
   // send_USART_str((unsigned char *)"hash_out:");
   // send_USART_str((unsigned char *)str);
 
+  /*
+  send_USART_str((unsigned char *)"-----------------------------");
+  send_USART_str((unsigned char *)"SHAKE256:");
+
+  size_t inlen = 32;
+  size_t outlen = 64;
+
+  unsigned char input[32] = {
+      0x01, 0x02, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xcc, 0xbb, 0xaa };
+  unsigned char output[outlen];
+
+  shake256(output, outlen, input, inlen);
+  //sha3_512(output, input, inlen);
+
+  to_string_256bitvalue(str, (UN_256bitValue*)input);
+  send_USART_str((unsigned char *)"hash_in:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, (UN_256bitValue*)output);
+  send_USART_str((unsigned char *)"hash_out:");
+  send_USART_str((unsigned char *)str);
 
 
 
+  send_USART_str((unsigned char *)"-----------------------------");
+  send_USART_str((unsigned char *)"SHAKE256 MASKED:");
+
+  unsigned char input_s0[inlen] = {};
+  unsigned char input_s1[inlen] = {};
+
+  unsigned char output_s0[outlen] = {};
+  unsigned char output_s1[outlen] = {};
+
+  memcpy(input_s0, input, inlen);
+  randombytes(input_s1, inlen);
+  memxor(input_s0, input_s1, inlen);
+  
+  shake256_masked(output_s0, output_s1, outlen, input_s0, input_s1, inlen);
+  //sha3_512_masked(output_s0, output_s1, input_s0, input_s1, inlen);
+
+  memcpy(output, output_s0, outlen);
+  memxor(output, output_s1, outlen);
+
+  to_string_256bitvalue(str, (UN_256bitValue*)input);
+  send_USART_str((unsigned char *)"hash_in:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, (UN_256bitValue*)input_s0);
+  send_USART_str((unsigned char *)"hash_in_s0:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, (UN_256bitValue*)input_s1);
+  send_USART_str((unsigned char *)"hash_in_s1:");
+  send_USART_str((unsigned char *)str);
+
+  to_string_256bitvalue(str, (UN_256bitValue*)output);
+  send_USART_str((unsigned char *)"hash_out:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, (UN_256bitValue*)output_s0);
+  send_USART_str((unsigned char *)"hash_out_s0:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, (UN_256bitValue*)output_s1);
+  send_USART_str((unsigned char *)"hash_out_s1:");
+  send_USART_str((unsigned char *)str);
+  */
 
 
   while (1)

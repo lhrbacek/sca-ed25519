@@ -15,10 +15,10 @@ OBJS	   = stm32f4_wrapper.o \
 			 crypto/support/randombytes.o \
 			 crypto/scalarmult/scalarmult_25519.o \
 			 crypto/numerics/fe25519.o crypto/numerics/fe25519_invert.o crypto/numerics/bigint.o crypto/numerics/sc25519.o \
-			 crypto/ed25519/ed25519.o crypto/hash/sha512_supercop.o
+			 crypto/ed25519/ed25519.o crypto/hash/sha512_supercop.o crypto/hash/fips202-masked.o crypto/hash/fips202.o crypto/asm/keccakf1600.o
 
-
-CFLAGS		+= -g \
+# -fomit-frame-pointer because not enough registers for asm code parts (hash sha or shake?), but maybe enough without -g 
+CFLAGS		+= -g -fomit-frame-pointer \
 		   -Wall -Wextra -Wimplicit-function-declaration \
 		   -Wredundant-decls -Wmissing-prototypes -Wstrict-prototypes \
 		   -Wundef -Wshadow \
