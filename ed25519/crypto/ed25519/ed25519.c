@@ -128,7 +128,10 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len, const uns
   // send_USART_str((unsigned char *)str);
 
   // 3. Compute the point [r]G
-  crypto_scalarmult_base_curve25519(rG.as_uint8_t, r.as_uint8_t);
+  if (0 != crypto_scalarmult_base_curve25519(rG.as_uint8_t, r.as_uint8_t))
+  {
+    return -1;
+  }
 
   // print
   // to_string_256bitvalue(str, &rG);

@@ -104,7 +104,7 @@ int main(void) {
   unsigned char signed_msg[64] = { 0 };
   unsigned long long signed_msg_len;
   unsigned char msg[] = {
-    0xaa, 0x11, 0xcc, 0xdd, 0xee, 0xff, 0xee, 0xff, 0xee};
+    0xab, 0x11, 0xcc, 0xdd, 0xee, 0xff, 0xee, 0xff, 0xee};
   unsigned long long msg_len = sizeof(msg);
   /*unsigned char priv_pub_key[64] = { // pubkey created with SHA512
     0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 
@@ -124,11 +124,15 @@ int main(void) {
     0xaa, 0xfe, 0xc4, 0x6, 0x86, 0xc7, 0x31, 0xa1, 0x2d, 0x63,
     0x49, 0x9e, 0xe0, 0xb5, };
   
-  sign(signed_msg, &signed_msg_len, msg, msg_len, priv_pub_key);
+  if (0 == sign(signed_msg, &signed_msg_len, msg, msg_len, priv_pub_key))
+  {
+    to_string_512bitvalue(str, (UN_512bitValue*)signed_msg);
+    send_USART_str((unsigned char *)"my ed25519:");
+    send_USART_str((unsigned char *)str);
+  } else {
+    send_USART_str((unsigned char *)"my ed25519: -1");
+  }
 
-  to_string_512bitvalue(str, (UN_512bitValue*)signed_msg);
-  send_USART_str((unsigned char *)"my ed25519:");
-  send_USART_str((unsigned char *)str);
 
 
   // HASH SHAKE DEBUG
