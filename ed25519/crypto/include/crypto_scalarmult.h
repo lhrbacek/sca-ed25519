@@ -11,6 +11,16 @@
 #define crypto_scalarmult_BYTES 32
 #define crypto_scalarmult_SCALARBYTES 32
 
+//#define COUNT_CYCLES_EXTRA_SM
+#ifdef COUNT_CYCLES_EXTRA_SM
+extern unsigned long long globalcount;
+#endif
+
+/*  This a haeder for scalarmult_25519.c, this is spearate from ephemeral and
+   unprotected cases, because the scalar and secret state data need to be loaded
+   once before usage. Therefore scalar multiplication does not take the scalar
+   as parameter from the user. */
+
 typedef struct STProtectedStaticKey_curve25519_ {
   uint64_t r;        // Randomization value
   UN_256bitValue k;  // scalar (s * (1/r)) mod sc25519
@@ -37,12 +47,21 @@ int crypto_static_scalarmult_curve25519(
     uint8_t* r, const STProtectedStaticKey_curve25519* s, const uint8_t* p);
 
 // Protected static scalar multiplication
-int crypto_scalarmult_curve25519(uint8_t* r, const uint8_t* s,
+int crypto_scalarmult_curve25519(uint8_t* r,
+                                 // const uint8_t* s,
                                  const uint8_t* p);
 
 void update_static_key_curve25519(void);
 
-int crypto_scalarmult_base_curve25519(uint8_t* q, const uint8_t* n);
+int crypto_scalarmult_base_curve25519(uint8_t* q
+                                      /*const uint8_t* n*/
+);
+
+void set_static_key_curve25519(const uint8_t* uRx, const uint8_t* uRy,
+                               const uint8_t* uRz, const uint8_t* uSx,
+                               const uint8_t* uSy, const uint8_t* uSz,
+                               const uint8_t* ustatic_key,
+                               const uint8_t* ublindingFactor);
 
 extern const uint8_t g_basePointCurve25519[32];
 
