@@ -14,14 +14,14 @@
 #include "../include/secure_storage.h"
 
 #define MULTIPLICATIVE_CSWAP
-#define ITOH_COUNTERMEASURE
-#define ITOH_COUNTERMEASURE64
+//#define ITOH_COUNTERMEASURE
+//#define ITOH_COUNTERMEASURE64
 
 // is the key updatable with respect to randomization - by default no
 // static uint8_t updatable = 1;
 // static uint8_t fixed = 0;
-#define UPDATABLE_STATIC_SCALAR
-#define SCALAR_RANDOMIZATION
+//#define UPDATABLE_STATIC_SCALAR
+//#define SCALAR_RANDOMIZATION
 
 #ifdef COUNT_CYCLES_EXTRA_SM
 unsigned long long globalcount;
@@ -51,6 +51,88 @@ typedef struct {
   fe25519* y;
   fe25519* z;
 } point25519;
+
+const fe25519 scaling_factor_pos = {{
+  0x24, 0x4b, 0x67, 0x20, 0x6a, 0x3e, 0x5b, 0xa9, 0xf8, 0x61, 0x81,
+  0x9b, 0x67, 0x5, 0x17, 0x1, 0x28, 0x31, 0x38, 0xf9, 0xf2, 0x43,
+  0xd5, 0xa1, 0x40, 0xb4, 0x4, 0xaf, 0xdb, 0x42, 0x68, 0xe9, }};
+
+const fe25519 scaling_factor_neg = {{
+  0x5b, 0xb4, 0x98, 0xdf, 0x95, 0xc1, 0xa4, 0x56, 0x7, 0x9e, 0x7e,
+  0x64, 0x98, 0xfa, 0xe8, 0xfe, 0xd7, 0xce, 0xc7, 0x6, 0xd, 0xbc,
+  0x2a, 0x5e, 0xbf, 0x4b, 0xfb, 0x50, 0x24, 0xbd, 0x97, 0x4, }};
+
+const fe25519 scaling_factor_pos_new = {{
+  0xe9, 0x68, 0x42, 0xdb, 0xaf, 0x4, 0xb4, 0x40, 0xa1, 0xd5, 0x43,
+  0xf2, 0xf9, 0x38, 0x31, 0x28, 0x1, 0x17, 0x5, 0x67, 0x9b, 0x81,
+  0x61, 0xf8, 0xa9, 0x5b, 0x3e, 0x6a, 0x20, 0x67, 0x4b, 0x24, }
+};
+
+const fe25519 scaling_factor_neg_new = {{
+  0x4, 0x97, 0xbd, 0x24, 0x50, 0xfb, 0x4b, 0xbf, 0x5e, 0x2a, 0xbc,
+  0xd, 0x6, 0xc7, 0xce, 0xd7, 0xfe, 0xe8, 0xfa, 0x98, 0x64, 0x7e,
+  0x9e, 0x7, 0x56, 0xa4, 0xc1, 0x95, 0xdf, 0x98, 0xb4, 0x5b, }};
+
+static void point_conversion_mp_ea(fe25519* x_ea, fe25519* y_ea ,const fe25519* U, const fe25519* V, const fe25519* W)
+{
+    // Vs = (V * Ed25519.scaling_factor_pos)
+    // U_plus_W = (U + W)
+    // # Montgomery trick
+    // T = (Vs * U_plus_W)
+    // R = pow(T, Ed25519.p - 2, Ed25519.p) # T^-1
+
+    // x = (U * R * U_plus_W) % Ed25519.p # U / Vs = U * R*(U+W)
+    // y = ((U - W) * R * Vs) % Ed25519.p # (U-W) / (U+W) = (U-W) * R*Vs
+
+    // return x, y
+
+    // TODO remove unnecessary reduction
+
+
+    fe25519 s, Vs, U_add_W, T, R, UR, U_sub_W, RVs;
+
+    fe25519_cpy(&s, &scaling_factor_pos_new);
+    fe25519_reduceCompletely(&s);
+
+    // to_string_256bitvalue(str, &s);
+    // send_USART_str((unsigned char *)"scaling_factor:");
+    // send_USART_str((unsigned char *)str);
+
+    fe25519_mul(&Vs, V, &s); // Vs = V*scaling_factor
+    fe25519_reduceCompletely(&Vs);
+
+    fe25519_add(&U_add_W, U, W);              // U_add_W = U+W
+    fe25519_reduceCompletely(&U_add_W);
+
+    fe25519_mul(&T, &Vs, &U_add_W);           // T = Vs*(U+W)
+    fe25519_reduceCompletely(&T);
+
+    fe25519_invert(&R, &T);                   // R = T^-1
+    fe25519_reduceCompletely(&R);
+
+    fe25519_mul(&UR, U, &R);                  // UR = U*R
+    fe25519_reduceCompletely(&UR);
+    fe25519_mul(x_ea, &UR, &U_add_W);         // x_ea = U*R*(U+W) = U/Vs
+    fe25519_reduceCompletely(x_ea);
+
+    fe25519_sub(&U_sub_W, U, W);              // U_sub_W = U-W
+    fe25519_mul(&RVs, &R, &Vs);               // RVs = R*Vs
+    fe25519_mul(y_ea, &U_sub_W, &RVs);        // y_ea = (U-W)*R*Vs = (U-W)/(U+W)
+    fe25519_reduceCompletely(y_ea);
+}
+
+// LH
+static void ed25519_encode(uint8_t out[32], const fe25519* x, const fe25519* y) {
+  uint8_t ctr;
+
+  for (ctr = 0; ctr < 32; ctr++) {
+    out[ctr] = y->as_uint8_t[ctr];
+  }
+
+  uint8_t lsb_of_x = x->as_uint8_t[0] & 1;
+
+  out[31] = (out[31] & 0x7F) | (lsb_of_x << 7);
+}
 
 extern void curve25519_cswap_asm(ST_curve25519ladderstepWorkingState* state,
                                  uint32_t* b);
@@ -265,6 +347,7 @@ void curve25519_ladderstep(ST_curve25519ladderstepWorkingState* pState) {
 
   fe25519_add(b5, b1, b2);           // A = X2+Z2
   fe25519_sub(b6, b1, b2);           // B = X2-Z2
+  fe25519_reduceCompletely(b6);      // LH: this reduction is needed because BB=B^2 affects X4=AA*BB
   fe25519_add(b1, b3, b4);           // C = X3+Z3
   fe25519_sub(b2, b3, b4);           // D = X3-Z3
   fe25519_mul(b3, b2, b5);           // DA= D*A
@@ -277,6 +360,7 @@ void curve25519_ladderstep(ST_curve25519ladderstepWorkingState* pState) {
   fe25519_square(b1, b5);            // AA=A^2
   fe25519_square(b5, b6);            // BB=B^2
   fe25519_sub(b2, b1, b5);           // E=AA-BB
+  fe25519_reduceCompletely(b2);      // LH: this reduction is needed because Z4=E*t5, reduction at B=X2-Z2 is not enough, some results are still different.
   fe25519_mul(b1, b5, b1);           // X4= AA*BB
 #ifdef CRYPTO_HAS_ASM_COMBINED_MPY121666ADD_FE25519
   fe25519_mpy121666add(b6, b5, b2);
@@ -588,7 +672,7 @@ void update_static_key_curve25519() {
 /// Comments such as "### alg. step 1 ###" provide to the respective line number of
 /// pseudo-code used in the paper.
 int crypto_scalarmult_curve25519(uint8_t* r,
-                                 /*const uint8_t* s,*/
+                                 const uint8_t* s,
                                  const uint8_t* p) {
   ST_curve25519ladderstepWorkingState state;
   uint8_t i;
@@ -599,47 +683,62 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   randombytes(r, 32); // ### alg. step 1 (also 1 in orig.) ###
 
 /* Lukasz update:*/
+  // LH comment, no scalar storage blinding or point blinding
   // update the key and the secret state data
-  update_static_key_curve25519(); // ### alg. step 2, orig. 49-51
+  //update_static_key_curve25519(); // ### alg. step 2, orig. 49-51
 
 
+  // LH comment, no scalar blinding secret storage
   // Prepare the scalar within the working state buffer.
+  // for (i = 0; i < 32; i++) {
+  //   state.s.as_uint8_t[i] = static_key.as_uint8_t[i];
+  //   INCREMENT_BY_NINE(fid_counter);
+  // } // ### alg. step 3, originally 2 ###
   for (i = 0; i < 32; i++) {
-    state.s.as_uint8_t[i] = static_key.as_uint8_t[i];
+    state.s.as_uint8_t[i] = s[i];
     INCREMENT_BY_NINE(fid_counter);
-  } // ### alg. step 3, originally 2 ###
+  }
 
   // Copy the affine x-axis of the base point to the state.
   fe25519_unpack(&state.x0, p); // ### alg. step 15, orig. 14 ###
 
+  // LH comment, need to switch points, TODO why
   // ### alg. step 16, step 15 ###
   fe25519_setone(&state.xq);
   fe25519_setzero(&state.zq);
   fe25519_cpy(&state.xp, &state.x0);
   fe25519_setone(&state.zp);
 
+  // fe25519_cpy(&state.xq, &state.x0); // Q(x0, 1)
+  // fe25519_setone(&state.zq);
+  // fe25519_setone(&state.xp); // P(1, 0)
+  // fe25519_setzero(&state.zp);
+
   INCREMENT_BY_NINE(fid_counter);
 
   fe25519 yp, y0;
 
-  point25519 P, R;
-  P.x = &state.xp;
-  P.y = &yp;
-  P.z = &state.zp;
-  R.x = &Rx;
-  R.y = &Ry;
-  R.z = &Rz;
+  // LH comment, no point blinding
+  // point25519 P, R;
+  // P.x = &state.xp;
+  // P.y = &yp;
+  // P.z = &state.zp;
+  // R.x = &Rx;
+  // R.y = &Ry;
+  // R.z = &Rz;
 
   if (computeY_curve25519_affine(&yp, &state.x0) != 0) {
     goto fail;
   } // ### alg. step 4, orig. 3 ###
   
-  curve25519_addPoint(&P, &P, &R); // ### alg. step 6, orig. 5 ###
+  // LH comment
+  // curve25519_addPoint(&P, &P, &R); // ### alg. step 6, orig. 5 ###
 
+  // LH comment
   // Double 3 times before we start ### alg. step 7, orig. 6 ###
-  curve25519_doublePoint(&P, &P);
-  curve25519_doublePoint(&P, &P);
-  curve25519_doublePoint(&P, &P);
+  // curve25519_doublePoint(&P, &P);
+  // curve25519_doublePoint(&P, &P);
+  // curve25519_doublePoint(&P, &P);
 
   // Randomize scalar multiplicatively
   UN_512bitValue randVal;
@@ -667,21 +766,23 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   fe25519_setone((fe25519*)&state.r);
 #endif
 
+  // LH comment, no scalar storage blinding
   // new re-rand ### alg. step 13, orig. 12 ###
-  sc25519_mul(&state.s, &state.s, &blindingFactor);
+  //sc25519_mul(&state.s, &state.s, &blindingFactor);
 
   INCREMENT_BY_163(fid_counter); // ### alg. step 14, orig. 13 ###
 
+  // LH comment because the doubling is also commented
   // Optimize for stack usage when implementing  ### alg. step 14 ###
 
-  fe25519_invert_useProvidedScratchBuffers(&state.zp, &state.zp, &state.xq,
-                                           &state.zq, &state.x0);
-  fe25519_mul(&state.xp, &state.xp, &state.zp);
-  fe25519_reduceCompletely(&state.xp);
+  // fe25519_invert_useProvidedScratchBuffers(&state.zp, &state.zp, &state.xq,
+  //                                          &state.zq, &state.x0);
+  // fe25519_mul(&state.xp, &state.xp, &state.zp);
+  // fe25519_reduceCompletely(&state.xp);
 
-  fe25519_mul(&yp, &yp, &state.zp);
+  // fe25519_mul(&yp, &yp, &state.zp);
 
-  fe25519_cpy(&state.x0, &state.xp);
+  // fe25519_cpy(&state.x0, &state.xp);
 
   //  ### alg. step 17, orig. 16 ###
   // Reinitialize coordinates
@@ -697,7 +798,9 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   fe25519_setone(&state.xp);
   fe25519_setzero(&state.zp);
 
-  state.nextScalarBitToProcess = 253;  // 252;
+  // LH 254
+  // state.nextScalarBitToProcess = 253;  // 252;
+  state.nextScalarBitToProcess = 254;
 
   // ### alg. step 18, orig. 17 ###
   // Prepare scalar xor previous bit. Always operate on
@@ -783,6 +886,7 @@ int crypto_scalarmult_curve25519(uint8_t* r,
 #endif
     }
 #endif
+    // LH TODO why not >= 0 ???
     if (state.nextScalarBitToProcess >= 1)  // ### alg. step 25, orig. 24
     {
       curve25519_ladderstep(&state); // alg. step 26, orig. 25
@@ -817,7 +921,7 @@ int crypto_scalarmult_curve25519(uint8_t* r,
 #endif
 
 #endif // #ifdef WITH_PERFORMANCE_BENCHMARKING
-
+/*
   // ### alg. step 29, orig. 28
   computeY_curve25519_projective(&y0, &state.xp, &state.zp, &state.xq,
                                  &state.zq, &state.x0, &yp);
@@ -848,7 +952,7 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   fe25519_setzero(&state.zp);
 
   state.nextScalarBitToProcess = 64;
-#if 1
+#if 0
   // Prepare scalar xor previous bit
   // ### alg. step 34 and 35, orig. 33 and 34
   for (i = 2; i >= 1; i--) {
@@ -966,39 +1070,56 @@ int crypto_scalarmult_curve25519(uint8_t* r,
 
 #ifdef WITH_PERFORMANCE_BENCHMARKING
 
-  /*Comment out cycle counts*/
+  //Comment out cycle counts
 #ifdef COUNT_CYCLES_EXTRA_SM
   unsigned int newcount = DWT_CYCCNT;
   globalcount += (newcount - oldcount);
 #endif
 
 #endif // #ifdef WITH_PERFORMANCE_BENCHMARKING
-
+*/
   // ----------------------------------------------------------
   // Compute y1
-  computeY_curve25519_projective(&yp, &state.xp, &state.zp, &state.xq,
-                                 &state.zq, &state.x0, &y0); // ### alg. step 43
+  computeY_curve25519_projective(&y0, &state.xp, &state.zp, &state.xq,
+                                 &state.zq, &state.x0, &yp); // ### alg. step 43
 
-  point25519 A;
-  fe25519 Ay;
-  A.x = &Sx;
-  A.y = &Ay;
-  A.z = &Sz;
-  P.x = &state.xp;
-  P.y = &yp;
-  P.z = &state.zp;
-  fe25519_cpy(A.y, &Sy);
-  fe25519_neg(A.y, A.y);
-  curve25519_addPoint(&P, &P, &A); // ### alg. step 45, orig. 44
+  // LH comment, no point blinding
+  // point25519 A;
+  // fe25519 Ay;
+  // A.x = &Sx;
+  // A.y = &Ay;
+  // A.z = &Sz;
+  // P.x = &state.xp;
+  // P.y = &yp;
+  // P.z = &state.zp;
+  // fe25519_cpy(A.y, &Sy);
+  // fe25519_neg(A.y, A.y);
+  // curve25519_addPoint(&P, &P, &A); // ### alg. step 45, orig. 44
 
+  // LH comment
   // Optimize for stack usage for ### alg. step 46, orig. 45
-  fe25519_invert_useProvidedScratchBuffers(&state.zp, &state.zp, &state.xq,
-                                           &state.zq, &state.x0);
-  fe25519_mul(&state.xp, &state.xp, &state.zp);
-  fe25519_reduceCompletely(&state.xp);
+  // fe25519_invert_useProvidedScratchBuffers(&state.zp, &state.zp, &state.xq,
+  //                                          &state.zq, &state.x0);
+  // fe25519_mul(&state.xp, &state.xp, &state.zp);
+  // fe25519_reduceCompletely(&state.xp);
   INCREMENT_BY_163(fid_counter);
 
-  if (fid_counter != (4 * 163 + 350 * 9)) // ### alg. step 48, orig. 47
+  // LH
+  fe25519 x_ea, y_ea;
+  point_conversion_mp_ea(&x_ea, &y_ea, &state.xp, &y0 ,&state.zp);
+  fe25519_reduceCompletely(&x_ea);
+  fe25519_reduceCompletely(&y_ea);
+
+  char str[100];
+  to_string_256bitvalue(str, &x_ea);
+  send_USART_str((unsigned char *)"x_ea:");
+  send_USART_str((unsigned char *)str);
+  to_string_256bitvalue(str, &y_ea);
+  send_USART_str((unsigned char *)"y_ea:");
+  send_USART_str((unsigned char *)str);
+
+  // if (fid_counter != (4 * 163 + 350 * 9)) // ### alg. step 48, orig. 47
+  if (fid_counter != (3 * 163 + 287 * 9)) // ### alg. step 48, orig. 47
   {
   fail:
     retval = -1;
@@ -1006,7 +1127,9 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   } else {
     retval = 0;
   }
-  fe25519_pack(r, &state.xp);
+  // LH
+  //fe25519_pack(r, &state.xp);
+  ed25519_encode(r, &x_ea, &y_ea);
 
 /*
   These original update is moved to the beginning
@@ -1020,10 +1143,10 @@ const uint8_t g_basePointCurve25519[32] = {9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-int crypto_scalarmult_base_curve25519(uint8_t* q
-                                      // const uint8_t* n
+int crypto_scalarmult_base_curve25519(uint8_t* q,
+                                      const uint8_t* n
 ) {
-  return crypto_scalarmult_curve25519(q, /*n,*/ g_basePointCurve25519);
+  return crypto_scalarmult_curve25519(q, n, g_basePointCurve25519);
 }
 
 #ifdef WITH_PERFORMANCE_BENCHMARKING
