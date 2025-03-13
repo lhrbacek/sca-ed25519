@@ -144,6 +144,33 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len, const uns
   s[31] &= 63;
   s[31] |= 64;
 
+  // s scalar blinding
+  uint8_t r1[32];
+  uint8_t r2[32];
+
+  randombytes(r1, 32);
+  randombytes(r2, 32);
+
+  sc25519 r1r2, r1r2_inv, r1s;
+  
+  sc25519_mul(&r1r2, (sc25519*)r1, (sc25519*)r2);
+  
+  // TODO do I need protected inverse?
+#if 1 // inverse protection
+  UN_256bitValue rand;
+  sc25519 r1r2rand, r1r2rand_inv;
+
+  randombytes(rand.as_uint8_t, 32);
+  sc25519_mul(&r1r2rand, &r1r2, &rand);
+  sc25519_inverse(&r1r2rand_inv, &r1r2rand);
+  sc25519_mul(&r1r2_inv, &r1r2rand_inv, &rand);
+#else
+  sc25519_inverse(&r1r2_inv, &r1r2);
+#endif
+
+  sc25519_mul(&r1s, (sc25519*)s, (sc25519*)r1);
+  //sc25519_mul(&r1r2s, &r1s, (sc25519*)r2);
+
   // 4.1 rqm = H(rG||pub_key||M)
   memcpy(rqm, rG.as_uint8_t, 32);
   memcpy(rqm + 32, priv_pub_key + 32, 32);
@@ -156,7 +183,14 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len, const uns
   memcpy(rqm_hashed_int.as_uint8_t, rqm_hashed, 32);
 
   // 5. S = (r + rqm_hashed * s)
-  sc25519_mul(&rqm_hashed_mul_s, &rqm_hashed_int, (sc25519*)s);
+  //sc25519_mul(&rqm_hashed_mul_s, &rqm_hashed_int, (sc25519*)s);
+  sc25519 rqm_hashed_mul_r1s;
+  sc25519 rqm_hashed_mul_s_r2_inv;
+
+  sc25519_mul(&rqm_hashed_mul_r1s, &rqm_hashed_int, &r1s);                // = rqm_hashed * r1*s
+  sc25519_mul(&rqm_hashed_mul_s_r2_inv, &rqm_hashed_mul_r1s, &r1r2_inv);  // = (rqm_hashed * r1*s) * 1/(r1*r2)
+  sc25519_mul(&rqm_hashed_mul_s, &rqm_hashed_mul_s_r2_inv, (sc25519*)r2); // = (rqm_hashed * s * 1/r2) * r2
+
   sc25519_add(&S, &r_int, &rqm_hashed_mul_s);
   
   // 6. signed_msg = R||S
