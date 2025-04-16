@@ -679,8 +679,6 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   volatile uint32_t retval = -1;
   volatile uint32_t fid_counter = 0;  // for fault injection detection ### alg. step 1 ###
 
-  char str[100];
-
   // Initialize return value with random bits
   randombytes(r, 32); // ### alg. step 1 (also 1 in orig.) ###
 
@@ -822,7 +820,9 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   // ### alg. step 19, orig. 18 ###
   UN_256bitValue itoh;
   randombytes(itoh.as_uint8_t, 32);
-  itoh.as_uint8_t[31] &= 63;  // 31;//15
+  // LH, itoh should be 254, itohshift 254 but shifted
+  //itoh.as_uint8_t[31] &= 63;  // 31;//15
+  itoh.as_uint8_t[31] &= 127; // 0111 1111
 
   UN_256bitValue itohShift;
   cpy_256bitvalue(&itohShift, &itoh);
@@ -853,9 +853,9 @@ int crypto_scalarmult_curve25519(uint8_t* r,
 
 #ifdef ITOH_COUNTERMEASURE
 #ifdef MULTIPLICATIVE_CSWAP
-  // LH comment
+  // LH comment change a[252] -> a[253]
   // ### alg. step 22, orig. 21 ###
-  //maskScalarBitsWithRandomAndCswap(&state, itohShift.as_uint32_t[7], 30);
+  maskScalarBitsWithRandomAndCswap(&state, itohShift.as_uint32_t[7], 31);
 #else
   //curve25519_cswap_asm(&state, &itohShift.as_uint32_t[7]);
 #endif
@@ -1117,32 +1117,11 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   // fe25519_reduceCompletely(&state.xp);
   INCREMENT_BY_163(fid_counter);
 
-  to_string_256bitvalue(str, &state.r);
-  send_USART_str((unsigned char *)"r:");
-  send_USART_str((unsigned char *)str);
-  to_string_256bitvalue(str, &state.xp);
-  send_USART_str((unsigned char *)"x_mp:");
-  send_USART_str((unsigned char *)str);
-  to_string_256bitvalue(str, &y0);
-  send_USART_str((unsigned char *)"y_mp:");
-  send_USART_str((unsigned char *)str);
-  to_string_256bitvalue(str, &state.zp);
-  send_USART_str((unsigned char *)"z_mp:");
-  send_USART_str((unsigned char *)str);
-
   // LH
   fe25519 x_ea, y_ea;
   point_conversion_mp_ea(&x_ea, &y_ea, &state.xp, &y0 ,&state.zp);
   fe25519_reduceCompletely(&x_ea);
   fe25519_reduceCompletely(&y_ea);
-
-  //char str[100];
-  to_string_256bitvalue(str, &x_ea);
-  send_USART_str((unsigned char *)"x_ea:");
-  send_USART_str((unsigned char *)str);
-  to_string_256bitvalue(str, &y_ea);
-  send_USART_str((unsigned char *)"y_ea:");
-  send_USART_str((unsigned char *)str);
 
   // if (fid_counter != (4 * 163 + 350 * 9)) // ### alg. step 48, orig. 47
   if (fid_counter != (4 * 163 + 351 * 9)) // ### alg. step 48, orig. 47
