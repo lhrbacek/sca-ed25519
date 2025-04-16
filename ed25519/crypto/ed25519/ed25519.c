@@ -2,7 +2,6 @@
 #include "../include/fe25519.h"
 #include "../include/crypto_scalarmult.h"
 #include "../include/ed25519.h"
-#include "../include/sha512_supercop.h"
 #include "../include/fips202-masked.h"
 #include "../include/randombytes.h"
 #include "../../stm32wrapper.h"
