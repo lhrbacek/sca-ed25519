@@ -1,4 +1,5 @@
 #include "../include/sc25519.h"
+#include "../include/fe25519.h"
 #include "../include/crypto_scalarmult.h"
 #include "../include/ed25519.h"
 #include "../include/sha512_supercop.h"
@@ -145,31 +146,32 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len, const uns
   s[31] |= 64;
 
   // s scalar blinding
-  uint8_t r1[32];
-  uint8_t r2[32];
-
-  randombytes(r1, 32);
-  randombytes(r2, 32);
+  // rng to 512b, then reduction to 256 for better uniform random distribution
+  UN_512bitValue r1_tmp, r2_tmp;
+  fe25519 r1, r2;
+  randombytes(r1.as_uint8_t, 64);
+  randombytes(r2.as_uint8_t, 64);
+  fe25519_reduceTo256Bits(&r1, &r1_tmp);
+  fe25519_reduceTo256Bits(&r2, &r2_tmp);
 
   sc25519 r1r2, r1r2_inv, r1s;
-  
-  sc25519_mul(&r1r2, (sc25519*)r1, (sc25519*)r2);
+  sc25519_mul(&r1r2, &r1, &r2);
   
   // TODO do I need protected inverse?
-#if 1 // inverse protection
-  UN_256bitValue rand;
-  sc25519 r1r2rand, r1r2rand_inv;
+  // inverse protection
+  UN_512bitValue rnd_for_inv_tmp;
+  fe25519 rnd_for_inv;
+  randombytes(rnd_for_inv_tmp.as_uint8_t, 64);
+  fe25519_reduceTo256Bits(&rnd_for_inv, &rnd_for_inv_tmp);
 
-  randombytes(rand.as_uint8_t, 32);
-  sc25519_mul(&r1r2rand, &r1r2, &rand);
-  sc25519_inverse(&r1r2rand_inv, &r1r2rand);
-  sc25519_mul(&r1r2_inv, &r1r2rand_inv, &rand);
-#else
-  sc25519_inverse(&r1r2_inv, &r1r2);
-#endif
+  sc25519 r1r2rnd, r1r2rnd_inv;
+  sc25519_mul(&r1r2rnd, &r1r2, &rnd_for_inv);
+  sc25519_inverse(&r1r2rnd_inv, &r1r2rnd);
+  sc25519_mul(&r1r2_inv, &r1r2rnd_inv, &rnd_for_inv);
 
-  sc25519_mul(&r1s, (sc25519*)s, (sc25519*)r1);
-  //sc25519_mul(&r1r2s, &r1s, (sc25519*)r2);
+  //sc25519_inverse(&r1r2_inv, &r1r2);
+
+  sc25519_mul(&r1s, (sc25519*)s, &r1);
 
   // 4.1 rqm = H(rG||pub_key||M)
   memcpy(rqm, rG.as_uint8_t, 32);
@@ -189,7 +191,7 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len, const uns
 
   sc25519_mul(&rqm_hashed_mul_r1s, &rqm_hashed_int, &r1s);                // = rqm_hashed * r1*s
   sc25519_mul(&rqm_hashed_mul_s_r2_inv, &rqm_hashed_mul_r1s, &r1r2_inv);  // = (rqm_hashed * r1*s) * 1/(r1*r2)
-  sc25519_mul(&rqm_hashed_mul_s, &rqm_hashed_mul_s_r2_inv, (sc25519*)r2); // = (rqm_hashed * s * 1/r2) * r2
+  sc25519_mul(&rqm_hashed_mul_s, &rqm_hashed_mul_s_r2_inv, &r2);          // = (rqm_hashed * s * 1/r2) * r2
 
   sc25519_add(&S, &r_int, &rqm_hashed_mul_s);
   
