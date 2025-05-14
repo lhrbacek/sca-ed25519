@@ -55,31 +55,6 @@ const fe25519 scaling_factor = {{
   0xb4, 0x2e, 0x2c, 0x5e, 0x3a, 0x81, 0xb0, 0x3, 0xfc, 0x23, 0xf7,
   0x84, 0x2d, 0x44, 0xf9, 0x5f, 0x9f, 0xb, 0x12, 0xd9, 0x70, }};
 
-// TODO remove
-const fe25519 scaling_factor_pos = {{
-  0x24, 0x4b, 0x67, 0x20, 0x6a, 0x3e, 0x5b, 0xa9, 0xf8, 0x61, 0x81,
-  0x9b, 0x67, 0x5, 0x17, 0x1, 0x28, 0x31, 0x38, 0xf9, 0xf2, 0x43,
-  0xd5, 0xa1, 0x40, 0xb4, 0x4, 0xaf, 0xdb, 0x42, 0x68, 0xe9, }};
-
-// TODO remove
-const fe25519 scaling_factor_neg = {{
-  0x5b, 0xb4, 0x98, 0xdf, 0x95, 0xc1, 0xa4, 0x56, 0x7, 0x9e, 0x7e,
-  0x64, 0x98, 0xfa, 0xe8, 0xfe, 0xd7, 0xce, 0xc7, 0x6, 0xd, 0xbc,
-  0x2a, 0x5e, 0xbf, 0x4b, 0xfb, 0x50, 0x24, 0xbd, 0x97, 0x4, }};
-
-// TODO remove
-const fe25519 scaling_factor_pos_new = {{
-  0xe9, 0x68, 0x42, 0xdb, 0xaf, 0x4, 0xb4, 0x40, 0xa1, 0xd5, 0x43,
-  0xf2, 0xf9, 0x38, 0x31, 0x28, 0x1, 0x17, 0x5, 0x67, 0x9b, 0x81,
-  0x61, 0xf8, 0xa9, 0x5b, 0x3e, 0x6a, 0x20, 0x67, 0x4b, 0x24, }
-};
-
-// TODO remove
-const fe25519 scaling_factor_neg_new = {{
-  0x4, 0x97, 0xbd, 0x24, 0x50, 0xfb, 0x4b, 0xbf, 0x5e, 0x2a, 0xbc,
-  0xd, 0x6, 0xc7, 0xce, 0xd7, 0xfe, 0xe8, 0xfa, 0x98, 0x64, 0x7e,
-  0x9e, 0x7, 0x56, 0xa4, 0xc1, 0x95, 0xdf, 0x98, 0xb4, 0x5b, }};
-
 // TODO clean
 void point_conversion_mp_ea(fe25519* x_ea, fe25519* y_ea ,const fe25519* U, const fe25519* V, const fe25519* W)
 {
@@ -232,8 +207,8 @@ int ed25519_decode(fe25519* x, fe25519* y, const uint8_t in[32])
                    x2  = x1 * sqrt(-1)
   */
 
-  unsigned char str[100];
-  send_USART_str((unsigned char *)"---------------decode()-----");
+  //unsigned char str[100];
+  //send_USART_str((unsigned char *)"---------------decode()-----");
 
   fe25519 num, den, t1, t2, t3; // num = numerator, den = denominator, tX = tmps
   fe25519_setone(&t1);
@@ -241,9 +216,9 @@ int ed25519_decode(fe25519* x, fe25519* y, const uint8_t in[32])
   uint8_t par = in[31] >> 7; // [...10000000], get parity bit
   fe25519_unpack(y, in);
 
-  to_string_256bitvalue(str, (UN_256bitValue*)y);
-  send_USART_str((unsigned char *)"verify(): ed25519_decode(): y:");
-  send_USART_str((unsigned char *)str);
+  //to_string_256bitvalue(str, (UN_256bitValue*)y);
+  //send_USART_str((unsigned char *)"verify(): ed25519_decode(): y:");
+  //send_USART_str((unsigned char *)str);
 
   fe25519_square(&t2, y);            // t2 = y^2
   fe25519_mul(&t3, &ed25519_d, &t2); // t3 = d*y^2
@@ -270,17 +245,17 @@ int ed25519_decode(fe25519* x, fe25519* y, const uint8_t in[32])
      x1^2 = num * den^-1
      den * x1^2 = num
    */
-  to_string_256bitvalue(str, (UN_256bitValue*)x);
-  send_USART_str((unsigned char *)"verify(): ed25519_decode(): x1:");
-  send_USART_str((unsigned char *)str);
+  //to_string_256bitvalue(str, (UN_256bitValue*)x);
+  //send_USART_str((unsigned char *)"verify(): ed25519_decode(): x1:");
+  //send_USART_str((unsigned char *)str);
 
   fe25519_square(&t1, x); // t1 used for check
   fe25519_mul(&t1, &t1, &den);
   if (fe25519_iseq_vartime(&t1, &num) == 0) {
     fe25519_mul(x, x, &ed25519_sqrtm1); // x = x1 * sqrt(-1)
-    to_string_256bitvalue(str, (UN_256bitValue*)x);
-    send_USART_str((unsigned char *)"verify(): ed25519_decode(): x2:");
-    send_USART_str((unsigned char *)str);
+    //to_string_256bitvalue(str, (UN_256bitValue*)x);
+    //send_USART_str((unsigned char *)"verify(): ed25519_decode(): x2:");
+    //send_USART_str((unsigned char *)str);
   }
 
   /* 4. Now we have one of the two square roots, except if input was not a square */
@@ -317,10 +292,10 @@ int ed25519_decode(fe25519* x, fe25519* y, const uint8_t in[32])
   // to_string_256bitvalue(str, (UN_256bitValue*)&x_tmp1);
   // send_USART_str((unsigned char *)"verify(): ed25519_decode(): after neg: x_tmp1:");
   // send_USART_str((unsigned char *)str);
-  to_string_256bitvalue(str, (UN_256bitValue*)&x);
-  send_USART_str((unsigned char *)"verify(): ed25519_decode(): after neg and reduce: x:");
-  send_USART_str((unsigned char *)str);
-  send_USART_str((unsigned char *)"------------------------------");
+  //to_string_256bitvalue(str, (UN_256bitValue*)&x);
+  //send_USART_str((unsigned char *)"verify(): ed25519_decode(): after neg and reduce: x:");
+  //send_USART_str((unsigned char *)str);
+  //send_USART_str((unsigned char *)"------------------------------");
      
 
   return 0;
@@ -581,72 +556,6 @@ static const fe25519 CON486662 = {
      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
 
-// TODO remove
-static void curve25519_doublePoint(point25519* R, const point25519* P) {
-  // x3 = 2y1z1^2 * (3x1^2z1+2ax1z1^2+z1^3)^2 - 8ay1^3z1^6 - 16x1y1^3z1^5
-  // y3 = 4y1^2z1^3 * (3x1+az1) * (3x1^2z1+2ax1z1^2=z1^3) -
-  // (3x1^2z1+2ax1z1^2=z1^3)^3 - 8y1^4z1^5
-  fe25519 v1, v2, v3, v4, v5, v6, v7;
-
-  fe25519_square(&v6, P->z);
-  fe25519_mul(&v6, &v6, P->y);
-  fe25519_add(&v6, &v6, &v6);
-  fe25519_square(&v1, P->x);
-  fe25519_mul(&v1, &v1, P->z);
-
-  fe25519_add(&v2, &v1, &v1);
-  fe25519_add(&v1, &v1, &v2);
-  fe25519_square(&v2, P->z);
-  fe25519_mul(&v2, &v2, P->x);
-  fe25519_mul(&v2, &v2, &CON486662);
-
-  fe25519_add(&v2, &v2, &v2);
-  fe25519_add(&v1, &v1, &v2);
-  fe25519_square(&v2, P->z);
-  fe25519_mul(&v2, &v2, P->z);
-  fe25519_add(&v1, &v1, &v2);
-
-  fe25519_square(&v2, &v1);
-  fe25519_mul(&v6, &v6, &v2);
-  fe25519_square(&v3, P->z);
-  fe25519_square(&v4, &v3);
-  fe25519_mul(&v4, &v4, P->z);
-
-  fe25519_square(&v3, P->y);
-  fe25519_mul(&v4, &v4, &v3);
-  fe25519_mul(&v4, &v4, P->y);
-  fe25519_add(&v4, &v4, &v4);
-  fe25519_add(&v4, &v4, &v4);
-
-  fe25519_add(&v4, &v4, &v4);
-  fe25519_mul(&v5, &v4, P->z);
-  fe25519_mul(&v5, &v5, &CON486662);
-  fe25519_sub(&v6, &v6, &v5);
-  fe25519_mul(&v5, &v4, P->x);
-
-  fe25519_square(&v7, P->z);
-  fe25519_mul(&v7, &v7, P->z);
-  fe25519_mul(&v3, &v3, &v7);
-  fe25519_add(&v3, &v3, &v3);
-  fe25519_add(&v3, &v3, &v3);
-
-  fe25519_mul(&v7, &CON486662, P->z);
-  fe25519_add(&v7, &v7, P->x);
-  fe25519_add(&v7, &v7, P->x);
-  fe25519_add(&v7, &v7, P->x);
-  fe25519_mul(&v7, &v7, &v3);
-
-  fe25519_add(&v5, &v5, &v5);
-  fe25519_sub(R->x, &v6, &v5);
-
-  fe25519_mul(&v7, &v7, &v1);
-  fe25519_mul(&v2, &v2, &v1);
-  fe25519_sub(&v7, &v7, &v2);
-  fe25519_mul(&v5, &v4, P->y);
-  fe25519_sub(R->y, &v7, &v5);
-
-  fe25519_mul(R->z, &v4, P->z);
-}
 
 // TODO comment why needed
 void curve25519_addPoint(point25519* R, const point25519* P,
@@ -748,89 +657,6 @@ static int computeY_curve25519_affine(fe25519* y, const fe25519* x) {
   return fe25519_squareroot(y, &tmp);
 }
 
-// TODO remove
-/* This function should be used by use to set his key */
-void set_static_key_curve25519(const uint8_t* uRx, const uint8_t* uRy,
-                               const uint8_t* uRz, const uint8_t* uSx,
-                               const uint8_t* uSy, const uint8_t* uSz,
-                               const uint8_t* ustatic_key,
-                               const uint8_t* ublindingFactor) {
-  uint8_t i;
-  for (i = 0; i < 32; i++) {
-    Rx.as_uint8_t[i] = uRx[i];
-    Ry.as_uint8_t[i] = uRy[i];
-    Rz.as_uint8_t[i] = uRz[i];
-    Sx.as_uint8_t[i] = uSx[i];
-    Sy.as_uint8_t[i] = uSy[i];
-    Sz.as_uint8_t[i] = uSz[i];
-    static_key.as_uint8_t[i] = ustatic_key[i];
-    blindingFactor.as_uint8_t[i] = ublindingFactor[i];
-  }
-  update_static_key_curve25519();
-}
-
-// TODO remove
-void update_static_key_curve25519() {
-  // Update points R, S
-  point25519 R, S;
-  R.x = &Rx;
-  R.y = &Ry;
-  R.z = &Rz;
-  S.x = &Sx;
-  S.y = &Sy;
-  S.z = &Sz;
-  point25519 R0, S0;
-  fe25519 rx0, ry0, rz0, sx0, sy0, sz0;
-  R0.x = &rx0;
-  R0.y = &ry0;
-  R0.z = &rz0;
-  S0.x = &sx0;
-  S0.y = &sy0;
-  S0.z = &sz0;
-  fe25519_cpy(R0.x, R.x);
-  fe25519_cpy(R0.y, R.y);
-  fe25519_cpy(R0.z, R.z);
-  fe25519_cpy(S0.x, S.x);
-  fe25519_cpy(S0.y, S.y);
-  fe25519_cpy(S0.z, S.z);
-
-  uint8_t randbyte;
-  randombytes(&randbyte, 1);
-  int8_t nextBit = 7;
-  while (nextBit >= 0) {
-    curve25519_doublePoint(&R, &R);
-    curve25519_doublePoint(&S, &S);
-    if (randbyte & (1 << nextBit)) {
-      curve25519_addPoint(&R, &R, &R0);
-      curve25519_addPoint(&S, &S, &S0);
-    }
-    nextBit--;
-  }
-
-#ifdef UPDATABLE_STATIC_SCALAR
-  sc25519 newBlindingFactor, newBlindingFactorInverse;
-  fe25519_setzero(&newBlindingFactor);
-
-  // Lukasz: new code so newBlindingFactor is not 0
-  // unsigned long long;
-  do {
-    randombytes(newBlindingFactor.as_uint8_t, 8);
-  } while (!newBlindingFactor.as_64_bitValue_t[0].as_uint64_t[0]);
-  //! fe25519_iszero(&newBlindingFactor)
-
-  fe25519 t, randB;
-  UN_512bitValue randVal;
-  randombytes(randVal.as_uint8_t, 64);
-  fe25519_reduceTo256Bits(&randB, &randVal);
-  sc25519_mul(&t, &newBlindingFactor, &randB);
-  sc25519_inverse(&t, &t);
-  sc25519_mul(&newBlindingFactorInverse, &t, &randB);
-  sc25519_mul(&static_key, &static_key, &newBlindingFactorInverse);
-  sc25519_mul(&static_key, &static_key, &blindingFactor);
-  cpy_256bitvalue(&blindingFactor, &newBlindingFactor);
-#endif
-}
-
 #if (defined(__clang__) || defined(__GNUC__)) && defined(CORTEX_M4)
 
 #define INCREMENT_BY_NINE(stackVariable)               \
@@ -868,23 +694,6 @@ void update_static_key_curve25519() {
   { a += 163; }
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /// This function implements algorithm 3 from the paper 
 /// "SoK: SCA-Secure ECC in software - mission impossible?"
@@ -957,12 +766,12 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   fe25519_reduceCompletely(&yp);
 
 
-  to_string_256bitvalue(str, &state.x0); // TODO remove
-  send_USART_str((unsigned char*)"scamult: state.x0: ");
-  send_USART_str(str);    
-  to_string_256bitvalue(str, &yp); // TODO remove
-  send_USART_str((unsigned char*)"scamult: y_ma: ");
-  send_USART_str(str);                  // TODO remove
+  //to_string_256bitvalue(str, &state.x0); // TODO remove
+  //send_USART_str((unsigned char*)"scamult: state.x0: ");
+  //send_USART_str(str);    
+  //to_string_256bitvalue(str, &yp); // TODO remove
+  //send_USART_str((unsigned char*)"scamult: y_ma: ");
+  //send_USART_str(str);                  // TODO remove
   
   // LH comment
   // curve25519_addPoint(&P, &P, &R); // ### alg. step 6, orig. 5 ###
@@ -988,14 +797,14 @@ int crypto_scalarmult_curve25519(uint8_t* r,
 
 
   //char str[100];                        // TODO remove
-  to_string_256bitvalue(str, &state.s); // TODO remove
-  send_USART_str(str);                  // TODO remove
+  //to_string_256bitvalue(str, &state.s); // TODO remove
+  //send_USART_str(str);                  // TODO remove
 
   // for (int i = 0; i < 8; i++) {         // TODO remove
   //   state.r.as_uint8_t[i] = 0x05;
   // }
-  to_string_256bitvalue(str, &state.r); // TODO remove
-  send_USART_str(str);                  // TODO remove
+  //to_string_256bitvalue(str, &state.r); // TODO remove
+  //send_USART_str(str);                  // TODO remove
 
 
   randombytes(randVal.as_uint8_t, 64);
@@ -1007,28 +816,28 @@ int crypto_scalarmult_curve25519(uint8_t* r,
 
 
   fe25519_reduceTo256Bits(&randB, &randVal); // ### alg. step 9, orig. 8 ###
-  to_string_256bitvalue(str, &randB);   // TODO remove
-  send_USART_str(str);                  // TODO remove
+  //to_string_256bitvalue(str, &randB);   // TODO remove
+  //send_USART_str(str);                  // TODO remove
 
 
   sc25519_mul(&t, &state.r, &randB); // ### alg. step 10, orig. 9 ###
-  to_string_256bitvalue(str, &t);       // TODO remove
-  send_USART_str(str);                  // TODO remove
+  //to_string_256bitvalue(str, &t);       // TODO remove
+  //send_USART_str(str);                  // TODO remove
 
 
   // ### alg. step 11, orig. 10 ###
-  uint8_t helper_share0[32];
-  uint8_t helper_share1[32];
+  //uint8_t helper_share0[32];
+  //uint8_t helper_share1[32];
   //hash_masked(r, randB.as_uint8_t, 32, helper_share0, helper_share1);
   //hash_masked(r, randB.as_uint8_t, 32, helper_share0, helper_share1);
   sc25519_inverse(&t, &t);
-  to_string_256bitvalue(str, &t);       // TODO remove
-  send_USART_str(str);                  // TODO remove
+  //to_string_256bitvalue(str, &t);       // TODO remove
+  //send_USART_str(str);                  // TODO remove
   
   
   sc25519_mul(&Rinv, &t, &randB);
-  to_string_256bitvalue(str, &Rinv);    // TODO remove
-  send_USART_str(str);                  // TODO remove
+  //to_string_256bitvalue(str, &Rinv);    // TODO remove
+  //send_USART_str(str);                  // TODO remove
 
   // sc25519 new_s, zero;               // TODO remove
   // fe25519_setzero(&zero);            // TODO remove
@@ -1037,8 +846,8 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   //cpy_256bitvalue(&state.s, &new_s);  // TODO remove
 
   //to_string_256bitvalue(str, &new_s); // TODO remove
-  to_string_256bitvalue(str, &state.s); // TODO remove
-  send_USART_str(str);                  // TODO remove
+  //to_string_256bitvalue(str, &state.s); // TODO remove
+  //send_USART_str(str);                  // TODO remove
 
 
   #else
@@ -1419,12 +1228,12 @@ int crypto_scalarmult_curve25519(uint8_t* r,
   //fe25519_pack(r, &state.xp);
   ed25519_encode(r, &x_ea, &y_ea);
 
-  to_string_256bitvalue(str, &x_ea); // TODO remove
-  send_USART_str((unsigned char*)"scamult: x_ea:");
-  send_USART_str(str);
-  to_string_256bitvalue(str, &y_ea); // TODO remove
-  send_USART_str((unsigned char*)"scamult: y_ea:");
-  send_USART_str(str); 
+  //to_string_256bitvalue(str, &x_ea); // TODO remove
+  //send_USART_str((unsigned char*)"scamult: x_ea:");
+  //send_USART_str(str);
+  //to_string_256bitvalue(str, &y_ea); // TODO remove
+  //send_USART_str((unsigned char*)"scamult: y_ea:");
+  //send_USART_str(str); 
 
 /*
   These original update is moved to the beginning
@@ -1616,13 +1425,13 @@ int ephemeral_crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
   fe25519_reduceCompletely(&x_ea);
   fe25519_reduceCompletely(&y_ea);
 
-  char str[100];
-  to_string_256bitvalue(str, &x_ea);
-  send_USART_str((unsigned char *)"x_ea:");
-  send_USART_str((unsigned char *)str);
-  to_string_256bitvalue(str, &y_ea);
-  send_USART_str((unsigned char *)"y_ea:");
-  send_USART_str((unsigned char *)str);
+  // char str[100];
+  // to_string_256bitvalue(str, &x_ea);
+  // send_USART_str((unsigned char *)"x_ea:");
+  // send_USART_str((unsigned char *)str);
+  // to_string_256bitvalue(str, &y_ea);
+  // send_USART_str((unsigned char *)"y_ea:");
+  // send_USART_str((unsigned char *)str);
 
   // ### alg. step 22 ###
   // LH
@@ -1687,13 +1496,13 @@ int unprotected_crypto_scalarmult_curve25519(uint8_t *r, const uint8_t *s,
     return 1;
   } // ### alg. step 3 ###
 
-  unsigned char str[100];
-  to_string_256bitvalue(str, &state.x0); // TODO remove
-  send_USART_str((unsigned char*)"scamult: state.x0: ");
-  send_USART_str(str);    
-  to_string_256bitvalue(str, &yp); // TODO remove
-  send_USART_str((unsigned char*)"scamult: y_ma: ");
-  send_USART_str(str);                  // TODO remove
+  // unsigned char str[100];
+  // to_string_256bitvalue(str, &state.x0); // TODO remove
+  // send_USART_str((unsigned char*)"scamult: state.x0: ");
+  // send_USART_str(str);    
+  // to_string_256bitvalue(str, &yp); // TODO remove
+  // send_USART_str((unsigned char*)"scamult: y_ma: ");
+  // send_USART_str(str);                  // TODO remove
 
   //state.nextScalarBitToProcess = 254; LH, 255 in ed25519
   state.nextScalarBitToProcess = 254;
