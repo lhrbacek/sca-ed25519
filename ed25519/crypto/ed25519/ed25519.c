@@ -52,11 +52,8 @@ static void __attribute__ ((noinline)) memxor(void *dest, const void *src, size_
 
 void hash_masked(unsigned char *output, const unsigned char *input, const unsigned long long inlen, unsigned char *helper_shake_share0, unsigned char *helper_shake_share1)
 {
-  // unsigned char input_s0[inlen] = {};
-  // unsigned char input_s1[inlen] = {};
-
-  unsigned char output_s0[64] = {};
-  unsigned char output_s1[64] = {};
+  unsigned char output_s0[64];
+  unsigned char output_s1[64];
 
   memcpy(helper_shake_share0, input, inlen);
   randombytes(helper_shake_share1, inlen);
@@ -76,29 +73,20 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
         unsigned char *helper_shake_share0x, unsigned char *helper_shake_share1x)
 {
   unsigned char buff[320]; // 64+256
-  unsigned char helper_shake_share0[320];
-  unsigned char helper_shake_share1[320];
-  //unsigned char priv_hashed[64];
-  //unsigned char priv_hashed_msg[96];
+  unsigned char helper_shake_share0[288]; // 32+256
+  unsigned char helper_shake_share1[288]; // 32+256
+
   UN_512bitValue r;
-  //UN_256bitValue rG = { 0 };
-  //unsigned char rqm[128];
-  //unsigned char ram_hashed[64];
   unsigned char digest_buff[64];
 
   unsigned char s[32];
-  //sc25519 r_int;
   sc25519 ram_hashed_int;
-  //sc25519 s_int;
   sc25519 ram_hashed_mul_s;
   sc25519 S;
 
   char str[100];
 
-  //hash_masked(signed_msg, priv_pub_key, 32, helper_shake_share0, helper_shake_share1);
-
   // 1. Compute the hash of the private key
-  // crypto_hash(priv_hashed, priv_pub_key, 32);
   hash_masked(digest_buff, priv_pub_key, 32, helper_shake_share0, helper_shake_share1); // H(priv_key)
   
   // print
@@ -106,13 +94,9 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   // send_USART_str((unsigned char *)"priv_hashed:");
   // send_USART_str((unsigned char *)str);
 
-  // use the fact that signed_msg will be at least 64 + msg_len long
   memcpy(buff+64, msg, msg_len);
   //memcpy(buff+32, priv_hashed+32, 32); // H(priv_key)32-64 || M
   memcpy32(buff+32, digest_buff+32);
-
-  // memcpy(priv_hashed_msg, priv_hashed + 32, 32);
-  // memcpy(priv_hashed_msg + 32, msg, msg_len); // H(priv_key)32-64 || M
 
   // print
   // to_string_256bitvalue(str, priv_hashed_msg);
@@ -120,7 +104,6 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   // send_USART_str((unsigned char *)str);
 
   // 2. r = H(H(priv_key)32-64 || M)
-  // crypto_hash(r.as_uint8_t, priv_hashed_msg, 32 + msg_len);
   hash_masked(r.as_uint8_t, buff+32, 32+msg_len, helper_shake_share0, helper_shake_share1);
 
   // print
@@ -129,8 +112,6 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   // send_USART_str((unsigned char *)str);
 
   sc25519_reduce(&r);
-  //sc_reduce(r.as_uint8_t);
-  //memcpy(r_int.as_uint8_t, r.as_uint8_t, 32);
 
   // print
   // to_string_256bitvalue(str, (UN_256bitValue*)&r);
@@ -138,14 +119,14 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   // send_USART_str((unsigned char *)str);
 
   // 3. Compute the point [r]G
-  if (0 != crypto_scalarmult_base_curve25519(buff, ((UN_256bitValue*)&r)->as_uint8_t)) // signed_msg = [R, H(priv_key)32-64, M]
+  if (0 != crypto_scalarmult_base_curve25519(buff, ((UN_256bitValue*)&r)->as_uint8_t)) // buff = [R, H(priv_key)32-64, M]
   {
     return -1;
   }
 
   // print
   // to_string_256bitvalue(str, &rG);
-  send_USART_str((unsigned char *)"rG:");
+  // send_USART_str((unsigned char *)"rG:");
   // send_USART_str((unsigned char *)str);
 
   // 4. Derive s from H(priv_key) as in the key pair generation algorithm
@@ -164,14 +145,9 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   fe25519_reduceTo256Bits(&r1, &r1_tmp);
   fe25519_reduceTo256Bits(&r2, &r2_tmp);
 
-  // sc25519 zero;
-  // fe25519_setzero(&zero);
-
   sc25519 r1r2, r1r2_inv, r1s;
   sc25519_mul(&r1r2, &r1, &r2);
-  //sc_muladd(r1r2.as_uint8_t, r1.as_uint8_t, r2.as_uint8_t, zero.as_uint8_t);
   
-  // TODO do I need protected inverse?
   // inverse protection
   UN_512bitValue rnd_for_inv_tmp;
   fe25519 rnd_for_inv;
@@ -183,15 +159,11 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   sc25519_inverse(&r1r2rnd_inv, &r1r2rnd);
   sc25519_mul(&r1r2_inv, &r1r2rnd_inv, &rnd_for_inv);
 
-  //sc25519_inverse(&r1r2_inv, &r1r2);
-
   sc25519_mul(&r1s, (sc25519*)s, &r1);
 
   // 4.1 rqm = H(rG||pub_key||M)
-  //memcpy(rqm, rG.as_uint8_t, 32);
   //memcpy(buff + 32, priv_pub_key + 32, 32); // signed_msg = [R, A, M]
   memcpy32(buff + 32, priv_pub_key + 32); // signed_msg = [R, A, M]
-  //memcpy(rqm + 64, msg, msg_len);
 
   // crypto_hash(rqm_hashed, rqm, 32+32+msg_len);
   hash_masked(digest_buff, buff, 32+32+msg_len, helper_shake_share0, helper_shake_share1);
@@ -201,7 +173,6 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   memcpy32(ram_hashed_int.as_uint8_t, digest_buff);
 
   // 5. S = (r + rqm_hashed * s)
-  //sc25519_mul(&rqm_hashed_mul_s, &rqm_hashed_int, (sc25519*)s);
   sc25519 ram_hashed_mul_r1s;
   sc25519 ram_hashed_mul_s_r2_inv;
 
@@ -212,7 +183,6 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   sc25519_add(&S, (UN_256bitValue*)(&r), &ram_hashed_mul_s);
 
   // 6. signed_msg = R||S
-  //memcpy(signed_msg, rG.as_uint8_t, 32); // TODO need to encode the R!!! or is it already?
   //memcpy(buff + 32, S.as_uint8_t, 32);
   memcpy32(buff + 32, S.as_uint8_t);
   //memcpy(signed_msg, buff, 64);
