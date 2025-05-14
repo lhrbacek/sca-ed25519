@@ -16,42 +16,6 @@ static void __attribute__ ((noinline)) memxor(void *dest, const void *src, size_
     *d++ ^= *s++;
 }
 
-// void hash_masked_32(unsigned char *output, const unsigned char *input)
-// {
-//   unsigned char input_s0[32] = {};
-//   unsigned char input_s1[32] = {};
-
-//   unsigned char output_s0[64] = {};
-//   unsigned char output_s1[64] = {};
-
-//   memcpy(input_s0, input, 32);
-//   randombytes(input_s1, 32);
-//   memxor(input_s0, input_s1, 32);
-
-//   shake256_masked(output_s0, output_s1, 64, input_s0, input_s1, 32);
-
-//   memcpy(output, output_s0, 64);
-//   memxor(output, output_s1, 64);
-// }
-
-// void hash_masked_64(unsigned char *output, const unsigned char *input)
-// {
-//   unsigned char input_s0[64] = {};
-//   unsigned char input_s1[64] = {};
-
-//   unsigned char output_s0[64] = {};
-//   unsigned char output_s1[64] = {};
-
-//   memcpy(input_s0, input, 64);
-//   randombytes(input_s1, 64);
-//   memxor(input_s0, input_s1, 64);
-
-//   shake256_masked(output_s0, output_s1, 64, input_s0, input_s1, 64);
-
-//   memcpy(output, output_s0, 64);
-//   memxor(output, output_s1, 64);
-// }
-
 void hash_masked(unsigned char *output, const unsigned char *input, const unsigned long long inlen, unsigned char *helper_shake_share0, unsigned char *helper_shake_share1)
 {
   // unsigned char input_s0[inlen] = {};
