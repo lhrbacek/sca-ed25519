@@ -56,7 +56,7 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
 
   char str[100];
 
-  hash_masked(signed_msg, priv_pub_key, 32, helper_shake_share0, helper_shake_share1);
+  //hash_masked(signed_msg, priv_pub_key, 32, helper_shake_share0, helper_shake_share1);
 
   // 1. Compute the hash of the private key
   // crypto_hash(priv_hashed, priv_pub_key, 32);
@@ -197,7 +197,7 @@ int sign_ephemeral(unsigned char *signed_msg,unsigned long long *signed_msg_len,
 
   char str[100];
 
-  hash_masked(signed_msg, priv_pub_key, 32, helper_shake_share0, helper_shake_share1);
+  //hash_masked(signed_msg, priv_pub_key, 32, helper_shake_share0, helper_shake_share1);
 
   // 1. Compute the hash of the private key
   // crypto_hash(priv_hashed, priv_pub_key, 32);
