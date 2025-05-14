@@ -25,7 +25,7 @@ void hash_masked(unsigned char *output, const unsigned char *input, const unsign
   unsigned char output_s1[64] = {};
 
   memcpy(helper_shake_share0, input, inlen);
-  //randombytes(helper_shake_share1, inlen);
+  randombytes(helper_shake_share1, inlen);
   memxor(helper_shake_share0, helper_shake_share1, inlen);
 
   shake256_masked(output_s0, output_s1, 64, helper_shake_share0, helper_shake_share1, inlen);
