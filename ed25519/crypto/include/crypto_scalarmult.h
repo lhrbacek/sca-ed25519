@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "bigint.h"
+#include "fe25519.h"
 
 #define crypto_scalarmult crypto_scalarmult_curve25519
 #define crypto_scalarmult_base crypto_scalarmult_base_curve25519
@@ -20,6 +21,12 @@ extern unsigned long long globalcount;
    unprotected cases, because the scalar and secret state data need to be loaded
    once before usage. Therefore scalar multiplication does not take the scalar
    as parameter from the user. */
+
+typedef struct {
+    fe25519* x;
+    fe25519* y;
+    fe25519* z;
+} point25519;
 
 typedef struct STProtectedStaticKey_curve25519_ {
   uint64_t r;        // Randomization value
@@ -51,10 +58,30 @@ int crypto_scalarmult_curve25519(uint8_t* r,
                                  const uint8_t* s,
                                  const uint8_t* p);
 
+// Ephemeral scalar multiplication
+int ephemeral_crypto_scalarmult_curve25519(uint8_t* r,
+    const uint8_t* s,
+    const uint8_t* p);
+
+
+// Unprotected scalar multiplication
+int unprotected_crypto_scalarmult_curve25519(uint8_t* r,
+    const uint8_t* s,
+    const uint8_t* p);
+
 void update_static_key_curve25519(void);
 
 int crypto_scalarmult_base_curve25519(uint8_t* q,
                                       const uint8_t* n
+);
+
+int ephemeral_crypto_scalarmult_base_curve25519(uint8_t* q,
+    const uint8_t* n
+);
+
+
+int unprotected_crypto_scalarmult_base_curve25519(uint8_t* q,
+    const uint8_t* n
 );
 
 void set_static_key_curve25519(const uint8_t* uRx, const uint8_t* uRy,
@@ -64,5 +91,20 @@ void set_static_key_curve25519(const uint8_t* uRx, const uint8_t* uRy,
                                const uint8_t* ublindingFactor);
 
 extern const uint8_t g_basePointCurve25519[32];
+
+void curve25519_addPoint(point25519* R, const point25519* P,
+    const point25519* Q);
+
+void point_conversion_ea_mp(fe25519* U, fe25519* V, fe25519* W,
+                            const fe25519* x_ea, const fe25519* y_ea);
+
+void point_conversion_mp_ea(fe25519* x_ea, fe25519* y_ea ,const fe25519* U, const fe25519* V, const fe25519* W);
+
+int ed25519_decode(fe25519* x, fe25519* y, const uint8_t in[32]);
+
+void ed25519_encode(uint8_t out[32], const fe25519* x, const fe25519* y);
+
+void sc_muladd(uint8_t *s, const uint8_t *a, const uint8_t *b,
+    const uint8_t *c);
 
 #endif
