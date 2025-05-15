@@ -79,12 +79,7 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   UN_512bitValue r;
   unsigned char digest_buff[64];
 
-  unsigned char s[32];
-  sc25519 ram_hashed_int;
-  sc25519 ram_hashed_mul_s;
-  sc25519 S;
-
-  char str[100];
+  //char str[100];
 
   // 1. Compute the hash of the private key
   hash_masked(digest_buff, priv_pub_key, 32, helper_shake_share0, helper_shake_share1); // H(priv_key)
@@ -129,62 +124,58 @@ int sign(unsigned char *signed_msg,unsigned long long *signed_msg_len,
   // send_USART_str((unsigned char *)"rG:");
   // send_USART_str((unsigned char *)str);
 
-  // 4. Derive s from H(priv_key) as in the key pair generation algorithm
-  //memcpy(s, priv_hashed, 32);
-  memcpy32(s, digest_buff);
-  s[0] &= 248;
-  s[31] &= 63;
-  s[31] |= 64;
-
-  // s scalar blinding
   // rng to 512b, then reduction to 256 for better uniform random distribution
-  UN_512bitValue r1_tmp, r2_tmp;
-  fe25519 r1, r2;
-  randombytes(r1.as_uint8_t, 64);
-  randombytes(r2.as_uint8_t, 64);
-  fe25519_reduceTo256Bits(&r1, &r1_tmp);
-  fe25519_reduceTo256Bits(&r2, &r2_tmp);
+  sc25519 t1, t2, t3, t4, t5, t6;
 
-  sc25519 r1r2, r1r2_inv, r1s;
-  sc25519_mul(&r1r2, &r1, &r2);
+  UN_512bitValue r1_tmp, r2_tmp;
+  randombytes(r1_tmp.as_uint8_t, 64);
+  randombytes(r2_tmp.as_uint8_t, 64);
+  fe25519_reduceTo256Bits(&t1, &r1_tmp); // u in Alg. Sign, Generate random value for further private scalar multiplication blinding
+  fe25519_reduceTo256Bits(&t2, &r2_tmp); // v in Alg. Sign, Generate random value for further private scalar multiplication blinding
+
+  sc25519_mul(&t3, &t1, &t2); // u*v
   
   // inverse protection
-  UN_512bitValue rnd_for_inv_tmp;
-  fe25519 rnd_for_inv;
-  randombytes(rnd_for_inv_tmp.as_uint8_t, 64);
-  fe25519_reduceTo256Bits(&rnd_for_inv, &rnd_for_inv_tmp);
+  randombytes(r1_tmp.as_uint8_t, 64);
+  fe25519_reduceTo256Bits(&t4, &r1_tmp); // tmp1 in Alg. Sign, Generate random value for inversion blinding
 
-  sc25519 r1r2rnd, r1r2rnd_inv;
-  sc25519_mul(&r1r2rnd, &r1r2, &rnd_for_inv);
-  sc25519_inverse(&r1r2rnd_inv, &r1r2rnd);
-  sc25519_mul(&r1r2_inv, &r1r2rnd_inv, &rnd_for_inv);
+  sc25519_mul(&t5, &t3, &t4); // tmp2 = u*v*tmp1 in Alg. Sign, Blind the product for future inversion, t3 is freed
+  sc25519_inverse(&t6, &t5);  // tmp2^(-1) = (u*v*tmp1)^(-1), Inversion, t5 is freed
+  sc25519_mul(&t3, &t6, &t4); // uv_inv = tmp2^(-1) * tmp1 = (u*v*tmp1)^(-1) * tmp1 = (u*v)^(-1) in Alg. Sign, Unblind the inverse, t6 and t4 is freed
 
-  sc25519_mul(&r1s, (sc25519*)s, &r1);
+  // 4. Derive s from H(priv_key) as in the key pair generation algorithm
+  //memcpy(s, priv_hashed, 32);
+  memcpy32(t4.as_uint8_t, digest_buff);
+  t4.as_uint8_t[0] &= 248;
+  t4.as_uint8_t[31] &= 63;
+  t4.as_uint8_t[31] |= 64;
 
-  // 4.1 rqm = H(rG||pub_key||M)
+  sc25519_mul(&t5, &t4, &t1); // us = u*s in Alg. Sign, Blind the private scalar, t1 and t4 are freed
+
+  // 4.1 buff = [R, A, M]
   //memcpy(buff + 32, priv_pub_key + 32, 32); // signed_msg = [R, A, M]
   memcpy32(buff + 32, priv_pub_key + 32); // signed_msg = [R, A, M]
 
   // crypto_hash(rqm_hashed, rqm, 32+32+msg_len);
   hash_masked(digest_buff, buff, 32+32+msg_len, helper_shake_share0, helper_shake_share1);
 
-  sc25519_reduce((UN_512bitValue*)digest_buff);
+  sc25519_reduce((UN_512bitValue*)digest_buff); // dig mod l
   //memcpy(ram_hashed_int.as_uint8_t, ram_hashed, 32);
-  memcpy32(ram_hashed_int.as_uint8_t, digest_buff);
 
-  // 5. S = (r + rqm_hashed * s)
-  sc25519 ram_hashed_mul_r1s;
-  sc25519 ram_hashed_mul_s_r2_inv;
+  // --- t1, t4, t6 are free ---
 
-  sc25519_mul(&ram_hashed_mul_r1s, &ram_hashed_int, &r1s);                // = ram_hashed * r1*s
-  sc25519_mul(&ram_hashed_mul_s_r2_inv, &ram_hashed_mul_r1s, &r1r2_inv);  // = (ram_hashed * r1*s) * 1/(r1*r2)
-  sc25519_mul(&ram_hashed_mul_s, &ram_hashed_mul_s_r2_inv, &r2);          // = (ram_hashed * s * 1/r2) * r2
+  memcpy32(t1.as_uint8_t, digest_buff); // dig = H(R||A||M) in Alg. Sign
 
-  sc25519_add(&S, (UN_256bitValue*)(&r), &ram_hashed_mul_s);
+  // 5. S = (r + dig * s)
+  sc25519_mul(&t4, &t1, &t5); // dig_tmp1 = dig * us in Alg. Sign, Multiply digest with blinded private scalar, t1 and t5 are freed
+  sc25519_mul(&t6, &t4, &t3); // dig_tmp2 = dig_tmp1 * uv_inv = dig * u*s * (u*v)^(-1) = dig * s * v^(-1) in Alg. Sign, Unblind part of result, t4 and t3 are freed
+  sc25519_mul(&t3, &t6, &t2); // = (ram_hashed * s * 1/r2) * r2, dig_s = dig_tmp2 * v = dig * s * v^(-1) * v = dig*s in Alg. Sign, Unblinf rest of result, t2 and t6 are freed
+
+  sc25519_add(&t4, (UN_256bitValue*)(&r), &t3); // S = r + dig*s in Alg. Sign, t3 is freed
 
   // 6. signed_msg = R||S
   //memcpy(buff + 32, S.as_uint8_t, 32);
-  memcpy32(buff + 32, S.as_uint8_t);
+  memcpy32(buff + 32, t4.as_uint8_t); // t4 is freed
   //memcpy(signed_msg, buff, 64);
   memcpy64(signed_msg, buff);
   *signed_msg_len = 32+32;
