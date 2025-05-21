@@ -74,3 +74,14 @@ For the full tutorial follow Sca25519 [repository](https://github.com/sca-secure
 For the evaluation on ChipWhisperer-Lite, their [release](https://github.com/newaetech/chipwhisperer/releases/tag/5.6.1) `5.6.1` must be use in virtual machine. Follow their [guide](https://chipwhisperer.readthedocs.io/en/latest/virtual-box-inst.html).
 
 Then copy the `cw/ed25519` folder inside the VM into ChipWhisperer file system in `hardware/victims/firmware` and start executing the `ed25519.ipynb`. New `PyCryptodome` library version needs to be installed, possibly by uninstalling the current and installing new via `pip`.
+
+## License
+Our code is under CC0 license.
+
+Files for masked SHAKE256 `keccakf1600.S` and `fips202-masked.*` are adapted from [Kyber](https://github.com/masked-kyber-m4/mkm4) under MIT license.
+
+Files related to the modular arithmetic, scalar multiplication and STM32F4 device is taken from [Sca25519](https://github.com/sca-secure-library-sca25519/sca25519) under CC0 license.
+
+Function `fe25519_pow2523` in `fe25519_invert.c` is adapted from [SUPERCOP](https://github.com/floodyberry/supercop/blob/master/crypto_sign/ed25519/ref/fe25519.c), which is Public Domain.
+
+Folder [libopenmc3](https://github.com/libopencm3/libopencm3) is under GPLv3 license.
