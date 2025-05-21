@@ -1,0 +1,1 @@
+Function fe25519_pow2523 in fe25519_invert.c taken from https://github.com/floodyberry/supercop/blob/master/crypto_sign/ed25519/ref/fe25519.c, which is Public Domain.
