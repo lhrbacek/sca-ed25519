@@ -99,6 +99,8 @@ void cycles_sign_static(void) {
   unsigned int oldcount, newcount;
   unsigned long long totalcountNumber = 0;
 
+  send_USART_str((unsigned char *)"Measuring static signing, this can take few minutes.");
+
   // Prepare variables for device registers for counting cycles
   SCS_DEMCR |= SCS_DEMCR_TRCENA;
   DWT_CYCCNT = 0;
@@ -129,6 +131,8 @@ void cycles_sign_ephemeral(void) {
   unsigned int oldcount, newcount;
   unsigned long long totalcountNumber = 0;
 
+  send_USART_str((unsigned char *)"Measuring ephemeral signing, this can take few minutes.");
+
   // Prepare variables for device registers for counting cycles
   SCS_DEMCR |= SCS_DEMCR_TRCENA;
   DWT_CYCCNT = 0;
@@ -158,6 +162,8 @@ void cycles_sign_unprotected(void) {
   int i;
   unsigned int oldcount, newcount;
   unsigned long long totalcountNumber = 0;
+
+  send_USART_str((unsigned char *)"Measuring unprotected signing, this can take few minutes.");
 
   // Prepare variables for device registers for counting cycles
   SCS_DEMCR |= SCS_DEMCR_TRCENA;
@@ -193,6 +199,8 @@ void cycles_scalarmult_static(void) {
   unsigned int oldcount, newcount;
   unsigned long long totalcountNumber = 0;
 
+  send_USART_str((unsigned char *)"Measuring static scalar multiplication, this can take few minutes.");
+
   // Prepare variables for device registers for counting cycles
   SCS_DEMCR |= SCS_DEMCR_TRCENA;
   DWT_CYCCNT = 0;
@@ -221,6 +229,8 @@ void cycles_scalarmult_unprotected(void) {
   unsigned int oldcount, newcount;
   unsigned long long totalcountNumber = 0;
 
+  send_USART_str((unsigned char *)"Measuring unprotected scalar multiplication, this can take few minutes.");
+
   // Prepare variables for device registers for counting cycles
   SCS_DEMCR |= SCS_DEMCR_TRCENA;
   DWT_CYCCNT = 0;
@@ -248,6 +258,8 @@ void cycles_scalarmult_ephemeral(void) {
   int i;
   unsigned int oldcount, newcount;
   unsigned long long totalcountNumber = 0;
+
+  send_USART_str((unsigned char *)"Measuring ephemeral scalar multiplication, this can take few minutes.");
 
   // Prepare variables for device registers for counting cycles
   SCS_DEMCR |= SCS_DEMCR_TRCENA;
